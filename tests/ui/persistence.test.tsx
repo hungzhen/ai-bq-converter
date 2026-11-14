@@ -10,6 +10,7 @@ import App from '../../src/App.tsx';
 import { type ReviewStore, createMemoryReviewStore } from '../../src/storage/reviewStore.ts';
 import * as L from '../helpers/synthetic/bqLayouts.ts';
 import { utf8 } from '../helpers/synthetic/spreadsheets.ts';
+import { decidedReview, editable } from '../helpers/reviews.ts';
 
 afterEach(cleanup);
 const TIMEOUT = { timeout: 15000 };
@@ -200,6 +201,71 @@ describe('export, delete and import', () => {
   it('tells people that browser storage can be lost and backups should be exported', () => {
     openApp(createMemoryReviewStore());
     expect(screen.getByTestId('storage-notice').textContent).toMatch(/Export a backup/);
+  });
+});
+
+describe('importing a backup of a review that is already saved', () => {
+  it('warns; Cancel changes nothing; "Import as a separate copy" adds a copy and leaves the original untouched', async () => {
+    const store = createMemoryReviewStore();
+    const page = openApp(store, 'Synthetic Reviewer');
+    await page.ready;
+    await review(page, L.conventionalBq(), 'SYNTHETIC_BQ.xlsx');
+    await makeDecisions(page);
+    await page.user.click(screen.getByRole('button', { name: 'Export review backup' }));
+    await new Promise((r) => setTimeout(r, 50));
+    const backup = page.downloads[0]!.text;
+    await page.user.click(screen.getByRole('button', { name: /Back to start/ }));
+    await screen.findByText('SYNTHETIC_BQ.xlsx', {}, TIMEOUT);
+    const original = JSON.stringify(await store.rawAll());
+
+    const importIt = () => page.user.upload(screen.getByTestId('backup-input'), new File([backup], 'SYNTHETIC_BQ.review-backup.json'));
+    await importIt();
+    const warning = await screen.findByTestId('duplicate-import', {}, TIMEOUT);
+    expect(warning.textContent).toContain('Nothing has been imported or changed');
+    expect(warning.textContent).toContain('identical to the backup');
+    await page.user.click(within(warning).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByTestId('import-message').textContent).toContain('Import cancelled');
+    expect(JSON.stringify(await store.rawAll())).toBe(original);
+
+    await importIt();
+    await page.user.click(within(await screen.findByTestId('duplicate-import', {}, TIMEOUT)).getByRole('button', { name: 'Import as a separate copy' }));
+    expect((await screen.findByTestId('import-message', {}, TIMEOUT)).textContent).toContain('as a separate copy');
+    await screen.findAllByText('SYNTHETIC_BQ.xlsx');
+    const raws = (await store.rawAll()) as { reviewId: string }[];
+    expect(raws).toHaveLength(2);
+    expect(JSON.stringify(raws.filter((r) => JSON.stringify([r]) === original))).toBe(original); // the original record, byte for byte
+  });
+});
+
+describe('a damaged saved review on application startup', () => {
+  it('is shown as invalid with reasons, kept exactly as stored and exportable as it is; a valid review still restores', async () => {
+    const { review: valid } = await decidedReview();
+    const damaged = editable(valid);
+    damaged['reviewId'] = 'damaged-1';
+    damaged['document']['fileName'] = 'SYNTHETIC_DAMAGED.xlsx';
+    damaged['history'] = damaged['history'].filter((e: { action: string }) => e.action !== 'decision_reopened');
+    damaged['history'].forEach((e: { sequence: number }, n: number) => (e.sequence = n + 1));
+    const store = createMemoryReviewStore([valid, damaged]);
+    const storedDamaged = JSON.stringify(await store.getRaw('damaged-1'));
+
+    const page = openApp(store);
+    expect((await screen.findByTestId('invalid-reviews-warning', {}, TIMEOUT)).textContent).toContain('kept exactly as stored');
+    const bad = (await screen.findByText(/SYNTHETIC_DAMAGED\.xlsx — invalid saved record/)).closest('tr')!;
+    expect(within(bad).queryByRole('button', { name: 'Reopen' })).toBeNull();
+    expect(bad.textContent).toContain('does not match the proposal\'s state at that point');
+    await page.user.click(within(bad).getByRole('button', { name: 'Export stored record' }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(page.downloads[0]!.name).toBe('damaged-1.stored-record.json');
+    expect(JSON.stringify(JSON.parse(page.downloads[0]!.text))).toBe(storedDamaged);
+
+    // The valid review is unaffected and restores with its decisions.
+    const good = screen.getByText('SYNTHETIC_BQ.xlsx').closest('tr')!;
+    await page.user.click(within(good).getByRole('button', { name: 'Reopen' }));
+    await page.user.upload(await screen.findByTestId('reopen-file-input'), fileOf(L.conventionalBq(), 'SYNTHETIC_BQ.xlsx'));
+    await screen.findByTestId('review-summary', {}, TIMEOUT);
+    expect(summary()).toContain('Approved: 1');
+    expect(summary()).toContain('Rejected: 2');
+    expect(JSON.stringify(await store.getRaw('damaged-1'))).toBe(storedDamaged); // never repaired, overwritten or deleted
   });
 });
 

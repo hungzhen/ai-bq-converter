@@ -12,6 +12,9 @@
  *   - a HISTORY of every action (proposal created, approved, rejected, correction recorded,
  *     warning acknowledged, alternative chosen, decision reopened, restored, imported).
  *     Earlier decisions are never overwritten: changing a decision adds events.
+ *     The history is append-only THROUGH THIS APPLICATION. It is not tamper-proof and is not a
+ *     secure audit trail: the record lives in the browser (and in exported backups) where it
+ *     could be edited outside the app. Reviewer names are typed in, not verified identities.
  *
  * It does NOT hold the spreadsheet's contents. To reopen a review, the original file is chosen
  * again and must have the same fingerprint.
@@ -66,6 +69,8 @@ export interface HistoryEvent {
   readonly note?: string;
   /** Warning codes acknowledged (action "warning_acknowledged"). */
   readonly warningCodes?: readonly string[];
+  /** The imported backup's content checksum (action "review_imported") — used to notice the same backup imported again. */
+  readonly backupChecksum?: string;
 }
 
 export interface SavedReview {
@@ -183,11 +188,18 @@ export function recordChanges(review: SavedReview, changes: readonly { before: P
 }
 
 /** Adds a review-level event (restored, imported). */
-export function recordEvent(review: SavedReview, action: 'review_restored' | 'review_imported', at: string, by: string | null, summary: string): SavedReview {
+export function recordEvent(
+  review: SavedReview,
+  action: 'review_restored' | 'review_imported',
+  at: string,
+  by: string | null,
+  summary: string,
+  extra: { readonly backupChecksum?: string } = {},
+): SavedReview {
   return frozenCopy<SavedReview>({
     ...review,
     savedAt: at,
-    history: [...review.history, { sequence: review.history.length + 1, at, by, action, summary }],
+    history: [...review.history, { sequence: review.history.length + 1, at, by, action, summary, ...(extra.backupChecksum ? { backupChecksum: extra.backupChecksum } : {}) }],
   });
 }
 

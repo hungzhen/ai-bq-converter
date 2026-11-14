@@ -2,3 +2,4 @@
 export * from './reviewRecord.ts';
 export * from './restore.ts';
 export * from './backup.ts';
+export * from './validate.ts';

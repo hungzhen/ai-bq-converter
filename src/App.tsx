@@ -8,7 +8,6 @@ import {
   backupFileName,
   createBackup,
   createReview,
-  readBackup,
   recordEvent,
   restoreReview,
   sameFingerprint,
@@ -16,7 +15,8 @@ import {
 import { readFileBytes } from './lib/readFile.ts';
 import { createRuleBasedProvider } from './providers/rule-based/index.ts';
 import type { InterpretationProvider } from './providers/types.ts';
-import { type ReviewStore, type ReviewSummary, createDefaultReviewStore } from './storage/reviewStore.ts';
+import { type ReviewStore, type ReviewSummary, type SavedReviewEntry, createDefaultReviewStore } from './storage/reviewStore.ts';
+import { type DuplicateMatch, importReviewBackup } from './storage/importReview.ts';
 import { UploadPanel } from './features/upload/UploadPanel.tsx';
 import { Workspace } from './features/review/Workspace.tsx';
 import { SavedReviews, formatDate } from './features/saved/SavedReviews.tsx';
@@ -31,7 +31,7 @@ type Phase =
   | { name: 'reopen'; review: SavedReview }
   /** The file chosen to reopen a review is a different document. */
   | { name: 'mismatch'; review: SavedReview; fileName: string; sha256: string; bytes: Uint8Array }
-  | { name: 'restore_failed'; review: SavedReview; message: string; details: readonly string[] }
+  | { name: 'restore_failed'; message: string; details: readonly string[]; invalidRecord?: boolean }
   | { name: 'review'; result: PipelineSuccess; review: SavedReview };
 
 export interface AppProps {
@@ -66,7 +66,9 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
   const store = useRef<ReviewStore>(givenStore ?? createDefaultReviewStore()).current;
   const [phase, setPhase] = useState<Phase>({ name: 'select' });
   const [reviewer, setReviewer] = useState('');
-  const [summaries, setSummaries] = useState<ReviewSummary[]>([]);
+  const [entries, setEntries] = useState<SavedReviewEntry[]>([]);
+  /** A backup that matches a review already saved here: waiting for "Cancel" or "Import as a separate copy". */
+  const [duplicate, setDuplicate] = useState<{ fileName: string; bytes: Uint8Array; matches: readonly DuplicateMatch[] } | null>(null);
   const [saveStatus, setSaveStatus] = useState({ ok: true, message: '' });
   const [importMessage, setImportMessage] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [runKey, setRunKey] = useState(0);
@@ -74,16 +76,17 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
 
   const refresh = useCallback(async () => {
     try {
-      setSummaries(await store.list());
+      setEntries(await store.list());
     } catch (e) {
       setImportMessage({ ok: false, lines: [`Saved reviews could not be read from this browser: ${e instanceof Error ? e.message : String(e)}`] });
     }
   }, [store]);
   useEffect(() => void refresh(), [refresh]);
 
-  const save = async (review: SavedReview) => {
+  const save = async (review: SavedReview, isNew = false) => {
     try {
-      await store.put(review);
+      if (isNew && !(await store.add(review))) throw new Error('a saved review with the same id already exists, so nothing was overwritten');
+      if (!isNew) await store.put(review);
       setSaveStatus({ ok: true, message: `Saved in this browser at ${time(review.savedAt)}` });
     } catch (e) {
       setSaveStatus({ ok: false, message: `NOT saved: ${e instanceof Error ? e.message : String(e)}. Export a backup now.` });
@@ -91,14 +94,14 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
     void refresh();
   };
 
-  const openReview = async (result: PipelineSuccess, review: SavedReview) => {
-    await save(review);
+  const openReview = async (result: PipelineSuccess, review: SavedReview, isNew = false) => {
+    await save(review, isNew);
     setRunKey((k) => k + 1);
     setPhase({ name: 'review', result, review });
   };
 
   const beginNewReview = (result: PipelineSuccess, options: ExtractionOptions) =>
-    openReview(result, createReview(result, { reviewId: newId(), at: now(), reviewer: reviewerName, extractionOptions: options, provider: provider.info }));
+    openReview(result, createReview(result, { reviewId: newId(), at: now(), reviewer: reviewerName, extractionOptions: options, provider: provider.info }), true);
 
   /** Restores a saved review onto the given bytes — only when the fingerprint matches. */
   const restoreFromBytes = async (review: SavedReview, bytes: Uint8Array, chosenName: string) => {
@@ -115,12 +118,12 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
       'extract_only',
     );
     if (!reread.ok) {
-      setPhase({ name: 'restore_failed', review, message: `The original file could not be read again: ${reread.message}`, details: [] });
+      setPhase({ name: 'restore_failed', message: `The original file could not be read again: ${reread.message}`, details: [] });
       return;
     }
     const restored = restoreReview(review, reread);
     if (!restored.ok) {
-      setPhase({ name: 'restore_failed', review, message: restored.message, details: restored.details });
+      setPhase({ name: 'restore_failed', message: restored.message, details: restored.details, invalidRecord: restored.reason === 'invalid_record' || restored.reason === 'invalid_decisions' });
       return;
     }
     await openReview(reread, recordEvent(review, 'review_restored', now(), reviewerName, `Reopened with "${chosenName}" (fingerprint matched; every proposal re-verified).`));
@@ -132,7 +135,7 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
       const bytes = await readFileBytes(file);
       const result = await runPipeline({ bytes, fileName: file.name }, provider, options);
       if (!result.ok) return setPhase({ name: 'failed', failure: result });
-      const matches = (await store.list()).filter((s) => s.sha256 === result.extraction.document.sha256);
+      const matches = (await store.list()).flatMap((e) => (e.status === 'valid' && e.summary.sha256 === result.extraction.document.sha256 ? [e.summary] : []));
       if (matches.length) return setPhase({ name: 'existing', result, options, bytes, fileName: file.name, matches });
       await beginNewReview(result, options);
     } catch (e) {
@@ -142,18 +145,47 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
 
   const exportReview = async (review: SavedReview) => download(backupFileName(review), await createBackup(review, now()));
 
-  const importBackup = async (file: File) => {
-    const result = await readBackup(await readFileBytes(file));
-    if (!result.ok) return setImportMessage({ ok: false, lines: [`"${file.name}" was not imported.`, ...result.errors] });
-    let review = result.review;
-    const existing = await store.get(review.reviewId);
-    const copy = existing !== undefined;
-    if (copy) review = { ...review, reviewId: newId() };
-    review = recordEvent(review, 'review_imported', now(), reviewerName, `Imported from backup "${file.name}"${copy ? ' as a separate copy (a review with the same id was already saved)' : ''}.`);
-    await store.put(review);
-    await refresh();
-    setImportMessage({ ok: true, lines: [`Imported the review of "${review.document.fileName}"${copy ? ' as a separate copy' : ''}. Reopen it with the original file.`] });
+  /** Loads a saved review, checking it first. An invalid record is reported and left exactly as stored. */
+  const loadChecked = async (id: string): Promise<SavedReview | null> => {
+    const loaded = await store.load(id);
+    if (!loaded) {
+      setImportMessage({ ok: false, lines: ['That saved review is no longer in this browser.'] });
+      await refresh();
+      return null;
+    }
+    if (!loaded.ok) {
+      setPhase({
+        name: 'restore_failed',
+        message: 'This saved review did not pass its checks, so it was not opened. It has been kept exactly as stored.',
+        details: loaded.problems,
+        invalidRecord: true,
+      });
+      return null;
+    }
+    return loaded.review;
   };
+
+  const exportStoredRecord = async (id: string) => {
+    const raw = await store.getRaw(id);
+    if (raw !== undefined) download(`${id.replace(/[^\w.-]+/g, '_')}.stored-record.json`, JSON.stringify(raw, null, 2));
+  };
+
+  const runImport = async (fileName: string, bytes: Uint8Array, asCopy: boolean) => {
+    setDuplicate(null);
+    const outcome = await importReviewBackup(store, bytes, { fileName, at: now(), by: reviewerName, newId, asCopy });
+    await refresh();
+    if (outcome.status === 'refused') return setImportMessage({ ok: false, lines: [`"${fileName}" was not imported.`, ...outcome.errors] });
+    if (outcome.status === 'duplicate') {
+      setImportMessage(null);
+      return setDuplicate({ fileName, bytes, matches: outcome.matches });
+    }
+    setImportMessage({
+      ok: true,
+      lines: [`Imported the review of "${outcome.review.document.fileName}"${outcome.asCopy ? ' as a separate copy (new review id; the existing review was not changed)' : ''}. Reopen it with the original file.`],
+    });
+  };
+
+  const importBackup = async (file: File) => runImport(file.name, await readFileBytes(file), false);
 
   const showStart = phase.name === 'select' || phase.name === 'running' || phase.name === 'failed';
 
@@ -194,7 +226,14 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
               </div>
             )}
             <SavedReviews
-              summaries={summaries}
+              entries={entries}
+              duplicate={duplicate}
+              onImportCopy={() => duplicate && void runImport(duplicate.fileName, duplicate.bytes, true)}
+              onCancelImport={() => {
+                setDuplicate(null);
+                setImportMessage({ ok: true, lines: ['Import cancelled. Nothing was imported or changed.'] });
+              }}
+              onExportStored={(id) => void exportStoredRecord(id)}
               storeKind={store.kind}
               importMessage={importMessage}
               onImport={(f) => void importBackup(f)}
@@ -203,11 +242,11 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
                 await refresh();
               }}
               onExport={async (id) => {
-                const r = await store.get(id);
+                const r = await loadChecked(id);
                 if (r) await exportReview(r);
               }}
               onReopen={async (id) => {
-                const r = await store.get(id);
+                const r = await loadChecked(id);
                 if (r) setPhase({ name: 'reopen', review: r });
               }}
             />
@@ -228,7 +267,7 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
                     type="button"
                     className="rounded bg-sky-700 px-2 py-0.5 text-white"
                     onClick={async () => {
-                      const r = await store.get(m.reviewId);
+                      const r = await loadChecked(m.reviewId);
                       if (r) await restoreFromBytes(r, phase.bytes, phase.fileName);
                     }}
                   >
@@ -310,6 +349,12 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
               </ul>
             )}
             <p className="mt-2 text-xs">The saved review is kept unchanged.</p>
+            {phase.invalidRecord && (
+              <p className="mt-1 text-xs" data-testid="invalid-record-help">
+                Nothing was deleted, repaired or approved. To recover: export the stored record as it is (Saved reviews → “Export stored record”) to keep a copy;
+                import an earlier review backup of this document if you have one; or start a new review from the original file.
+              </p>
+            )}
             <button type="button" className="mt-3 rounded border bg-white px-3 py-1 text-xs" onClick={() => setPhase({ name: 'select' })}>
               Back to saved reviews
             </button>

@@ -90,7 +90,15 @@ When it matches, every saved proposal is checked again against the file before i
 
 ![Restored review with history](screenshots/10-restored-review-with-history.png)
 
-**Backups.** "Export review backup" downloads a `.review-backup.json` file. "Import review backup…" loads one back. Details: [`REVIEW_PERSISTENCE.md`](REVIEW_PERSISTENCE.md).
+**Backups.** "Export review backup" downloads a `.review-backup.json` file. "Import review backup…" loads one back after checking it completely. If the backup matches a review already saved, you are warned and can cancel or import it as a separate copy; nothing is overwritten.
+
+![Duplicate import warning](screenshots/11-duplicate-import-warning.png)
+
+**Damaged saved records.** A saved review that fails its checks is shown as invalid, with the reasons. It is kept exactly as stored and can be exported as it is.
+
+![Damaged record on startup](screenshots/13-damaged-record-on-startup.png)
+
+Reviewer names are typed in and are not verified identities. The history is not tamper-proof. Details: [`REVIEW_PERSISTENCE.md`](REVIEW_PERSISTENCE.md).
 
 ## 6. Not yet
 
