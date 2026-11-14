@@ -6,6 +6,7 @@
  *  project.ts         ConverterProject (several source files, their relationships)
  *  stagedBQRow.ts     StagedBQRow (wraps the Cost Library FullBQItem with evidence and review)
  *  progressClaim.ts   ClaimDocumentRecord, ProgressClaimRecord (kept separate from the BQ)
+ *  extraction.ts      ExtractedTable / CellRef (data shape only; reading files is Stage 2F)
  *  issues.ts          ValidationIssue
  *  review.ts          ReviewState
  */
@@ -16,3 +17,4 @@ export * from './review.ts';
 export * from './project.ts';
 export * from './stagedBQRow.ts';
 export * from './progressClaim.ts';
+export * from './extraction.ts';

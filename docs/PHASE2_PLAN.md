@@ -44,7 +44,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   ├── core/                         ✅ pure TypeScript, no React
 │   │   ├── models/                   ✅ all converter data structures (Stage 2C; see docs/DATA_MODELS.md)
 │   │   ├── parsing/                  ✅ numbers, special values, units (Stage 2D; see docs/VALUE_PARSING.md)
-│   │   ├── evidence/                 ✅ evidence verifier
+│   │   ├── evidence/                 ✅ evidence verifier (Stage 2E; see docs/EVIDENCE_VERIFIER.md)
 │   │   ├── extraction/
 │   │   │   ├── format-detect.ts      ✅ real file type from file bytes (incl. PDF recognised)
 │   │   │   ├── spreadsheet/          ✅ XLSX / XLS / CSV → ExtractedTable

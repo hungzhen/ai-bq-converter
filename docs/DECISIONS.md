@@ -67,3 +67,16 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **Percentages:** a percentage in a Qty / Rate / Amount column is held back, because its meaning depends on the row (Phase 3 decides with the row's context). In a percentage column, a value between −1 and 1 written without `%` is flagged, because it could be a fraction.
 - **Original kept:** the original cell value is always kept exactly.
 - Details: `docs/VALUE_PARSING.md`.
+
+## D-012 — "L.S." depends on the column (Stage 2E)
+- **Unit column:** `L.S.`, `LS` and `Lump Sum` are kept exactly as written, as the unit meaning "lump sum".
+- **Qty / Rate / Amount column:** the same text is a `LUMP_SUM` marker with no value.
+- **Either way:** no quantity of 1 is ever assumed or filled in, and no rate is worked out from the amount.
+
+## D-013 — Providers and the evidence verifier (Stage 2E)
+- **One interface for every provider.** Rule-based now, AI possibly later.
+- **Decisions only.** Providers return decisions that cite cells. They never return quantities, rates, amounts, units or descriptions; any answer containing them is rejected.
+- **Phase 2 registry:** refuses AI providers and providers that need the network. No API key is used.
+- **The verifier only reports.** It checks sources, project and document, that raw values are unaltered, and that parsed values match a fresh reading of the cell. It never corrects, fills in or approves anything.
+- **Proposals until approved.** Every answer stays a proposal until a person approves it. Blocking findings can never be approved; warnings need an acknowledging note.
+- Details: `docs/EVIDENCE_VERIFIER.md`.

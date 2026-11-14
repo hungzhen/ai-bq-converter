@@ -47,7 +47,7 @@ Neither becomes 0.
 | `Rate Only`, `R.O.`, `R/O` | RATE_ONLY |
 | `P.C. Sum`, `PC Sum`, `Prime Cost Sum`, `P.C.` | PRIME_COST_SUM |
 | `Provisional Sum`, `Prov. Sum`, `Prov Sum`, `P.S.` | PROVISIONAL_SUM |
-| `L.S.`, `LS`, `Lump Sum` | LUMP_SUM. **Not** a quantity of 1 |
+| `L.S.`, `LS`, `Lump Sum` | LUMP_SUM. **Not** a quantity of 1. *(This applies to Qty / Rate / Amount columns. In the Unit column, `L.S.` stays the unit text "L.S.", meaning lump sum.)* |
 | `N/A`, `N.A.`, `NA` | NOT_APPLICABLE |
 | `Nil` | NIL. **Not** zero |
 | `By others` | BY_OTHERS |
@@ -91,3 +91,4 @@ These values get the state **unparseable**: no value enters the BQ. The possible
 - **Units** are kept exactly as written; `m2` is **not** converted to `m²`. The parser notes whether the unit is a recognised one.
 - **A number in the Unit column** (e.g. `10`) is flagged, because it is probably a quantity in the wrong column.
 - **A blank unit** stays blank. It does not become "item".
+- **`L.S.`, `LS` or `Lump Sum` in the Unit column** is kept exactly as written and tagged with the meaning "lump sum". The quantity is not affected: no quantity of 1 is implied or filled in.

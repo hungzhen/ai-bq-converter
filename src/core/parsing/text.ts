@@ -34,7 +34,15 @@ export interface UnitParseResult {
   readonly evidence: FieldEvidence<string>;
   /** True when the unit is one of the recognised unit words (it is still kept exactly as written). */
   readonly recognised: boolean;
+  /**
+   * What a unit with a special meaning stands for. "L.S." / "LS" / "Lump Sum" in the UNIT column
+   * is the unit "lump sum" (kept as written). It says nothing about the quantity: no quantity of 1
+   * is implied or filled in. (In a Qty / Rate / Amount column the same text is a LUMP_SUM marker.)
+   */
+  readonly meaning: 'lump_sum' | 'percentage' | null;
 }
+
+const LUMP_SUM_UNIT = /^(l\.?\s?s\.?|lump\s?sum)$/;
 
 /**
  * Parses a cell of the Unit column. The unit is kept exactly as written. A number in the unit
@@ -48,9 +56,12 @@ export function parseUnitCell(raw: RawValue | undefined, origin: ParseOrigin): U
     return {
       evidence: unparseableEvidence<string>(raw as RawValue, { ...origin, note: `"${String(raw)}" is a number, not a unit; it may be a quantity in the wrong column.` }),
       recognised: false,
+      meaning: null,
     };
   }
   const evidence = parseTextCell(raw, origin);
-  const recognised = evidence.state === 'value' && (isUnitWord(normaliseSpacing(evidence.parsed!)) || ['%', 'ls', 'l.s.', 'lump sum'].includes(normaliseSpacing(evidence.parsed!).toLowerCase()));
-  return { evidence, recognised };
+  if (evidence.state !== 'value') return { evidence, recognised: false, meaning: null };
+  const key = normaliseSpacing(evidence.parsed!).toLowerCase();
+  const meaning = LUMP_SUM_UNIT.test(key) ? 'lump_sum' : key === '%' ? 'percentage' : null;
+  return { evidence, recognised: meaning !== null || isUnitWord(key), meaning };
 }
