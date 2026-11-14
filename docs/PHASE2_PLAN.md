@@ -35,10 +35,12 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   └── check-cost-library-types.mjs  ✅ compares the vendored copy with a Cost Library checkout
 ├── src/
 │   ├── main.tsx, App.tsx, index.css  ✅
-│   ├── vendor/
-│   │   ├── cost-library/costLibrary.ts   ✅ verbatim read-only copy (commit 00491965)
-│   │   ├── cost-library/VENDOR.md        ✅ where it came from; "do not edit"
-│   │   └── utils/                        ✅ 4 tiny stand-ins for types costLibrary.ts refers to
+│   ├── vendor/cost-library/          ✅ (as built in Stage 2B)
+│   │   ├── types/costLibrary.ts      ✅ verbatim read-only copy (commit 00491965)
+│   │   ├── utils/*.d.ts              ✅ 4 clearly marked stand-ins for types costLibrary.ts refers to
+│   │   ├── index.ts                  ✅ types-only entry point used by the converter
+│   │   ├── SOURCE.json               ✅ origin (repository, path, commit) and SHA-256 fingerprint
+│   │   └── README.md                 ✅ rules, and how to check for / refresh changes
 │   ├── core/                         ✅ pure TypeScript, no React
 │   │   ├── models/                   ✅ all converter data structures
 │   │   ├── parsing/                  ✅ numbers, special values, units

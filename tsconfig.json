@@ -8,7 +8,9 @@
     "types": ["vite/client", "node"],
 
     "strict": true,
-    "noUncheckedIndexedAccess": true,
+    // "noUncheckedIndexedAccess" is deliberately NOT enabled: the exact, read-only copy of the
+    // Cost Library's costLibrary.ts (src/vendor/cost-library) does not compile with it (line 624),
+    // and that file must not be changed. The Cost Library itself compiles without it.
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
@@ -19,5 +21,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "vite.config.ts"]
+  "include": ["src", "tests", "scripts", "vite.config.ts"]
 }

@@ -7,7 +7,13 @@ A web application that reads construction documents and converts them into the s
 
 The input formats are Excel, CSV, digital PDF and scanned PDF.
 
-**Current status:** Phase 2, Stage 2A. The project foundation only; no document processing yet.
+**Current status:** Phase 2, Stage 2B. The project foundation, plus a read-only copy of the Cost Library's `costLibrary.ts` (the `FullBQItem` target format). No document processing yet.
+
+The copy is in `src/vendor/cost-library/` (see its [README](src/vendor/cost-library/README.md)). To check whether the Cost Library's file has changed since it was copied (this only reads files and never updates the copy):
+
+```bash
+npm run check:cost-library -- /path/to/Cost-Library
+```
 
 **Processing:** conventional rule-based processing. No AI is used, and no API key is needed.
 

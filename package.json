@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:cost-library": "node scripts/check-cost-library-types.ts"
   },
   "dependencies": {
     "react": "19.3.1",

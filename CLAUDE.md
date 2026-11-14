@@ -13,6 +13,12 @@ npm test
 npm run build
 ```
 
+To check whether the Cost Library's `costLibrary.ts` has changed since it was copied (read-only; never updates the copy):
+
+```
+npm run check:cost-library -- <path to a Cost Library checkout or file> [--ref <commit or branch>]
+```
+
 ## Working rules
 
 - **Build one stage at a time.** Commit and push it, show it to the owner, and wait for approval before the next stage.

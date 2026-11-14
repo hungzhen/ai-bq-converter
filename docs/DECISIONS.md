@@ -52,3 +52,10 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 ## D-009 — Stage-by-stage review
 - Each stage is built, tested, committed and shown to the owner separately.
 - The next stage starts only after approval.
+
+## D-010 — TypeScript strictness setting (Stage 2B)
+- The converter compiles in TypeScript `strict` mode.
+- The extra setting `noUncheckedIndexedAccess` (switched on in Stage 2A) is **switched off**.
+- Reason: the exact copy of `costLibrary.ts` does not compile with it (line 624), and the copy must not be changed. The Cost Library itself compiles without it, and without `strict` at all.
+- Effect: code that passes the converter's stricter checks also satisfies the Cost Library's looser ones.
+- Takes effect: Stage 2B.

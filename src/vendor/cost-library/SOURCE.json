@@ -1,0 +1,40 @@
+{
+  "description": "Exact, read-only copy of the Cost Library type definitions. Never edit types/costLibrary.ts by hand.",
+  "repository": "hungzhen/Cost-Library",
+  "repositoryUrl": "https://github.com/hungzhen/Cost-Library",
+  "sourcePath": "src/types/costLibrary.ts",
+  "commit": "00491965a20cc9b68d7a928ddbcac3b68e91ccfc",
+  "commitDate": "2026-11-13T01:29:05+00:00",
+  "commitMessage": "BQ template: plain profit / attendance examples with the amount left blank",
+  "vendoredPath": "src/vendor/cost-library/types/costLibrary.ts",
+  "sha256": "936d100e1d10f94b7b543ec841a48524c57eb6b2c83c4d5d62e5236d0d9aea63",
+  "lines": 1968,
+  "copiedOn": "2026-11-14",
+  "copiedBy": "Stage 2B — copied byte-for-byte with `git show <commit>:<path>`",
+  "standIns": [
+    {
+      "path": "src/vendor/cost-library/utils/estimateBasis.d.ts",
+      "provides": ["BillKind"],
+      "kind": "exact transcription of the type definition",
+      "original": "src/utils/estimateBasis.ts line 8"
+    },
+    {
+      "path": "src/vendor/cost-library/utils/billArea.d.ts",
+      "provides": ["AreaUnit", "BillAreaSource"],
+      "kind": "exact transcription of the type definitions",
+      "original": "src/utils/billArea.ts lines 10 and 28"
+    },
+    {
+      "path": "src/vendor/cost-library/utils/benchmark.d.ts",
+      "provides": ["BenchmarkSettings"],
+      "kind": "placeholder (unknown) — never produced or read by the converter",
+      "original": "src/utils/benchmark.ts line 443"
+    },
+    {
+      "path": "src/vendor/cost-library/utils/projectDetails.d.ts",
+      "provides": ["ProjectDetails"],
+      "kind": "placeholder (unknown) — never produced or read by the converter",
+      "original": "src/utils/projectDetails.ts line 48"
+    }
+  ]
+}
