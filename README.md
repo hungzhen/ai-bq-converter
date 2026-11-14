@@ -7,7 +7,7 @@ A web application that reads construction documents and converts them into the s
 
 The input formats are Excel, CSV, digital PDF and scanned PDF.
 
-**Current status:** Phase 2, Stage 2C. The project foundation, a read-only copy of the Cost Library's `costLibrary.ts` (the `FullBQItem` target format), and the core data models (see [`docs/DATA_MODELS.md`](docs/DATA_MODELS.md)). No document reading yet.
+**Current status:** Phase 2, Stage 2D. The project foundation, a read-only copy of the Cost Library's `costLibrary.ts` (the `FullBQItem` target format), the core data models (see [`docs/DATA_MODELS.md`](docs/DATA_MODELS.md)) and single-cell value parsing (see [`docs/VALUE_PARSING.md`](docs/VALUE_PARSING.md)). Files are not read yet.
 
 The copy is in `src/vendor/cost-library/` (see its [README](src/vendor/cost-library/README.md)). To check whether the Cost Library's file has changed since it was copied (this only reads files and never updates the copy):
 

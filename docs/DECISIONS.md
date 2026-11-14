@@ -59,3 +59,11 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - Reason: the exact copy of `costLibrary.ts` does not compile with it (line 624), and the copy must not be changed. The Cost Library itself compiles without it, and without `strict` at all.
 - Effect: code that passes the converter's stricter checks also satisfies the Cost Library's looser ones.
 - Takes effect: Stage 2B.
+
+## D-011 — How ambiguous cell values are handled (Stage 2D)
+- **Number format:** the Malaysian convention. Comma = thousands separator, dot = decimal point, `RM` / `MYR` = Ringgit.
+- **Ambiguous values are not guessed.** Comma decimals, unusual groupings, spaces inside numbers, trailing minus, both brackets and minus, scientific notation, units or currencies in the wrong column, foreign currencies: all get the state "unparseable", with the possible readings listed for a person to choose from.
+- **Markers are not numbers.** `-`, `Nil` and `Incl.` are recorded as markers, not as zero. `L.S.` is not a quantity of 1.
+- **Percentages:** a percentage in a Qty / Rate / Amount column is held back, because its meaning depends on the row (Phase 3 decides with the row's context). In a percentage column, a value between −1 and 1 written without `%` is flagged, because it could be a fraction.
+- **Original kept:** the original cell value is always kept exactly.
+- Details: `docs/VALUE_PARSING.md`.

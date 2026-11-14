@@ -37,7 +37,9 @@ export type SpecialValue =
   | 'PRIME_COST_SUM'
   | 'NOT_APPLICABLE'
   | 'BY_OTHERS'
-  | 'NIL_DASH';
+  | 'LUMP_SUM' // "L.S." / "Lump sum" in a figure column — NOT a quantity of 1
+  | 'NIL' // the word "Nil" — NOT zero
+  | 'NIL_DASH'; // a dash "-" in a figure column — NOT zero
 
 export type ExtractionMethod =
   | 'spreadsheet_cell' // read from an Excel cell

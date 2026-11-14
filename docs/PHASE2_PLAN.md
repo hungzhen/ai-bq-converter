@@ -43,7 +43,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   └── README.md                 ✅ rules, and how to check for / refresh changes
 │   ├── core/                         ✅ pure TypeScript, no React
 │   │   ├── models/                   ✅ all converter data structures (Stage 2C; see docs/DATA_MODELS.md)
-│   │   ├── parsing/                  ✅ numbers, special values, units
+│   │   ├── parsing/                  ✅ numbers, special values, units (Stage 2D; see docs/VALUE_PARSING.md)
 │   │   ├── evidence/                 ✅ evidence verifier
 │   │   ├── extraction/
 │   │   │   ├── format-detect.ts      ✅ real file type from file bytes (incl. PDF recognised)
