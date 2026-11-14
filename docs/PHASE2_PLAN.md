@@ -51,7 +51,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   │   ├── csv/                  ✅ CSV → ExtractedTable (own reader; keeps every field as text)
 │   │   │   ├── pdf-digital/          ◻ Phase 6 (interface defined in Phase 2)
 │   │   │   └── pdf-scanned/          ◻ Phase 7 (OCR; interface defined in Phase 2)
-│   │   ├── pipeline/                 ✅ orchestrator skeleton
+│   │   ├── pipeline/                 ✅ runs extraction → interpretation → verification → proposals (Stage 2H)
 │   │   ├── structuring/              ◻ Phase 3
 │   │   ├── templates/                ◻ Phase 3
 │   │   ├── validation/, reconciliation/, export/   ◻ Phase 4
@@ -63,7 +63,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   └── claude/README.md          ✅ design notes only — no code, no key
 │   ├── rules/                        ✅ editable JSON rule files + checking schemas
 │   ├── storage/                      ✅ StorageAdapter interface + in-memory adapter
-│   ├── features/                     ✅ one screen: upload → extracted table → proposed mapping
+│   ├── features/                     ✅ upload screen and review workspace (Stage 2H; see docs/USER_INTERFACE.md)
 │   └── components/ui/                ✅ basic table, badge (e.g. "Conventional rule-based processing")
 └── tests/
     ├── unit/                         ✅ mirrors src/core and src/providers

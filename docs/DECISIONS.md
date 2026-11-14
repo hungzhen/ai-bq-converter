@@ -106,3 +106,18 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **Approval states:** proposed / verified / approved / rejected. Approving an answer with alternatives needs an explicit choice. Bulk approval covers only straightforward regions, columns and rows (no alternatives, no warnings). High confidence never approves anything.
 - **Taxonomy reference:** `taxonomy.ts` re-exports only `UNIFIED_TRADE_PACKAGES` and `TRADE_SUBTRADES` from the read-only copy, as reference data. No Cost Library function is used.
 - Details: `docs/RULE_BASED_PROVIDER.md`.
+
+## D-016 — Pipeline and first interface (Stage 2H)
+- **Local only.** Everything runs in the browser; nothing is uploaded, and the file is never changed.
+- **Stops on failure.** The pipeline runs its stages in a fixed order and stops at the first failed stage with a clear message. A proposal that fails verification is shown as "failed verification" and can never be approved.
+- **Complete source.** The whole extracted source is shown: every worksheet, including hidden ones, and every row in place. Proposed row types appear in a separate, dashed column.
+- **Evidence.** Selecting a proposal shows its interpretation, confidence (always with its cited cells), explanation, exact quoted text, cell references (click to highlight), alternatives and findings.
+- **Decisions:**
+  - approve (a note is required with warnings; an explicit choice with alternatives; impossible with a blocking finding)
+  - reject
+  - reject with a correction (verified against the same cells and stored separately, with a note)
+  - leave unresolved
+- **Bulk approval:** Stage 2G restrictions, with a confirmation step.
+- **Identity:** the reviewer's name is recorded when typed; otherwise "not recorded". There is no account system.
+- **No saving yet.** Review decisions are kept in memory only, for this session.
+- Details: `docs/USER_INTERFACE.md`.

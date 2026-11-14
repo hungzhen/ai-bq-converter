@@ -26,9 +26,17 @@ import { type VerificationReport, blockingFindings, stableKey, warningFindings }
 import { type InterpretationContext, verifyInterpretation } from './verifyInterpretation.ts';
 
 export interface ProposalDecision {
-  readonly by: string;
+  /** Who decided — when known. null = not recorded (there is no sign-in yet); never invented. */
+  readonly by: string | null;
   readonly at: string;
   readonly note?: string;
+}
+
+/** A person's correction recorded with a rejection: their own value for the same cited cells. */
+export interface ProposalCorrection<K extends DecisionKind = DecisionKind> {
+  readonly value: DecisionTypes[K];
+  /** The correction checked against the same evidence (it must have no blocking finding). */
+  readonly verification: VerificationReport;
 }
 
 /** Which reading a person approved: the main answer, or alternative number n (0-based). */
@@ -42,6 +50,8 @@ export interface Proposal<K extends DecisionKind = DecisionKind> {
   readonly decision?: ProposalDecision;
   /** Set on approval. */
   readonly chosen?: ProposalChoice;
+  /** Set when a person rejected the proposal and recorded their own value instead. */
+  readonly correction?: ProposalCorrection<K>;
 }
 
 export type ReviewState = 'failed_verification' | 'verified' | 'approved' | 'rejected';
@@ -52,6 +62,13 @@ export class ProposalError extends Error {
 
 /** Decision kinds that may be approved in bulk, when straightforward. */
 export const BULK_APPROVABLE_KINDS: readonly DecisionKind[] = ['tableRegion', 'columnRole', 'rowClass'];
+
+/** A name, when given, must not be blank; null means "not recorded". */
+function checkIdentity(decision: ProposalDecision, what: string): void {
+  if (decision.by !== null && decision.by.trim() === '') {
+    throw new ProposalError(`${what}: the name is blank. Give a name, or leave it as "not recorded".`);
+  }
+}
 
 export function createProposal<K extends DecisionKind>(id: string, interpretation: Interpretation<K>, verification: VerificationReport): Proposal<K> {
   if (verification.subjectKey !== stableKey(interpretation)) {
@@ -80,7 +97,7 @@ const hasAlternatives = (p: Proposal) => (p.interpretation.alternatives?.length 
  */
 export function approveProposal<K extends DecisionKind>(proposal: Proposal<K>, decision: ProposalDecision, choice?: ProposalChoice): Proposal<K> {
   if (proposal.status !== 'proposed') throw new ProposalError(`Proposal "${proposal.id}" was already ${proposal.status}.`);
-  if (!decision.by.trim()) throw new ProposalError('Approval must name the person approving.');
+  checkIdentity(decision, 'Approval');
   if (proposal.verification.subjectKey !== stableKey(proposal.interpretation)) {
     throw new ProposalError('The answer changed after it was verified. It must be verified again.');
   }
@@ -104,8 +121,42 @@ export function approveProposal<K extends DecisionKind>(proposal: Proposal<K>, d
 
 export function rejectProposal<K extends DecisionKind>(proposal: Proposal<K>, decision: ProposalDecision): Proposal<K> {
   if (proposal.status !== 'proposed') throw new ProposalError(`Proposal "${proposal.id}" was already ${proposal.status}.`);
-  if (!decision.by.trim()) throw new ProposalError('Rejection must name the person rejecting.');
+  checkIdentity(decision, 'Rejection');
   return frozenCopy<Proposal<K>>({ ...proposal, status: 'rejected', decision });
+}
+
+/**
+ * A person rejects the proposal and records their own value for the same cited cells (e.g. a
+ * different row type). The correction is checked against the same evidence; it is refused if
+ * that check finds a blocking problem. A note explaining the correction is required.
+ * The original proposal and the source data are not changed.
+ */
+export function correctProposal<K extends DecisionKind>(
+  proposal: Proposal<K>,
+  decision: ProposalDecision,
+  value: DecisionTypes[K],
+  ctx: InterpretationContext,
+): Proposal<K> {
+  if (proposal.status !== 'proposed') throw new ProposalError(`Proposal "${proposal.id}" was already ${proposal.status}.`);
+  checkIdentity(decision, 'Correction');
+  if (!decision.note?.trim()) throw new ProposalError('A correction needs a note explaining it.');
+  const { alternatives: _alternatives, quotedText, ...rest } = proposal.interpretation;
+  void _alternatives;
+  const asAnswer: Interpretation<K> = { ...rest, ...(quotedText ? { quotedText } : {}), value, reasoning: `Correction: ${decision.note}` };
+  const verification = verifyInterpretation({ ...asAnswer, providerId: proposal.interpretation.providerId }, { ...ctx, provider: undefined });
+  const blocking = blockingFindings(verification);
+  if (blocking.length > 0) throw new ProposalError(`The correction does not fit the cited cells: ${blocking.map((f) => f.code).join(', ')}.`);
+  return frozenCopy<Proposal<K>>({ ...proposal, status: 'rejected', decision, correction: { value, verification } });
+}
+
+/** Approved readings and recorded corrections — what a person has decided, with where it came from. */
+export function decidedValues<K extends DecisionKind>(proposals: readonly Proposal<K>[]): { proposalId: string; value: DecisionTypes[K]; source: 'approved' | 'correction' }[] {
+  const out: { proposalId: string; value: DecisionTypes[K]; source: 'approved' | 'correction' }[] = [];
+  for (const p of proposals) {
+    if (p.status === 'approved') out.push({ proposalId: p.id, value: approvedDecisions([p])[0]!, source: 'approved' });
+    else if (p.status === 'rejected' && p.correction) out.push({ proposalId: p.id, value: p.correction.value, source: 'correction' });
+  }
+  return out;
 }
 
 /** Why a proposal is not eligible for bulk approval (null = eligible). */
@@ -126,7 +177,7 @@ export function bulkApprove<K extends DecisionKind>(
   proposals: readonly Proposal<K>[],
   decision: ProposalDecision,
 ): { approved: Proposal<K>[]; skipped: { proposal: Proposal<K>; reason: string }[] } {
-  if (!decision.by.trim()) throw new ProposalError('Bulk approval must name the person approving.');
+  checkIdentity(decision, 'Bulk approval');
   const approved: Proposal<K>[] = [];
   const skipped: { proposal: Proposal<K>; reason: string }[] = [];
   for (const p of proposals) {

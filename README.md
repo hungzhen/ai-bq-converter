@@ -7,7 +7,7 @@ A web application that reads construction documents and converts them into the s
 
 The input formats are Excel, CSV, digital PDF and scanned PDF.
 
-**Current status:** Phase 2, Stage 2G. In place so far:
+**Current status:** Phase 2, Stage 2H. In place so far:
 - the project foundation
 - a read-only copy of the Cost Library's `costLibrary.ts` (the `FullBQItem` target format)
 - the core data models ([`docs/DATA_MODELS.md`](docs/DATA_MODELS.md))
@@ -15,6 +15,7 @@ The input formats are Excel, CSV, digital PDF and scanned PDF.
 - the provider interface and evidence verifier ([`docs/EVIDENCE_VERIFIER.md`](docs/EVIDENCE_VERIFIER.md))
 - spreadsheet extraction for `.xlsx`, `.xls` and `.csv` ([`docs/SPREADSHEET_EXTRACTION.md`](docs/SPREADSHEET_EXTRACTION.md))
 - the first rule-based provider, which proposes document type, tables, columns, row types, hierarchy and trade suggestions for review ([`docs/RULE_BASED_PROVIDER.md`](docs/RULE_BASED_PROVIDER.md))
+- the pipeline and the first interface: choose a spreadsheet, inspect the full extracted source, and review, approve or reject proposals with their evidence ([`docs/USER_INTERFACE.md`](docs/USER_INTERFACE.md))
 
 The copy is in `src/vendor/cost-library/` (see its [README](src/vendor/cost-library/README.md)). To check whether the Cost Library's file has changed since it was copied (this only reads files and never updates the copy):
 
