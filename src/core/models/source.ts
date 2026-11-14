@@ -67,10 +67,15 @@ export interface WorksheetReference extends ReferenceBase {
 
 export interface CsvReference extends ReferenceBase {
   readonly kind: 'csv';
-  /** Line number in the file (1 = first line). */
+  /**
+   * Record (row) number, 1 = first record — the row number a spreadsheet program shows when it
+   * opens the file. A quoted field may span several lines, so this can differ from the line number.
+   */
   readonly rowNumber: number;
-  /** Field number on the line (1 = first field). */
+  /** Field number in the record (1 = first field). */
   readonly columnNumber?: number;
+  /** Physical line of the file on which the record starts (1 = first line), when known. */
+  readonly lineNumber?: number;
   /** Spreadsheet-style address, e.g. "E14", for display only. */
   readonly cellAddress?: string;
 }
@@ -170,14 +175,18 @@ export function createWorksheetReference(
 
 export function createCsvReference(
   document: DocumentIdentity,
-  at: { rowNumber: number; columnNumber?: number },
+  at: { rowNumber: number; columnNumber?: number; lineNumber?: number },
 ): CsvReference {
   requireThat(document.format === 'csv', `A CSV reference needs a CSV file, not "${document.format}".`);
   requireThat(isPositiveInteger(at.rowNumber), `Row number must be a whole number of 1 or more (got ${at.rowNumber}).`);
+  if (at.lineNumber !== undefined) {
+    requireThat(isPositiveInteger(at.lineNumber) && at.lineNumber >= at.rowNumber, `Line number must be a whole number, at least the row number (got ${at.lineNumber}).`);
+  }
   const ref: CsvReference = {
     kind: 'csv',
     ...base(document),
     rowNumber: at.rowNumber,
+    ...(at.lineNumber !== undefined ? { lineNumber: at.lineNumber } : {}),
     ...(at.columnNumber !== undefined
       ? { columnNumber: at.columnNumber, cellAddress: cellAddress(at.rowNumber, at.columnNumber) }
       : {}),

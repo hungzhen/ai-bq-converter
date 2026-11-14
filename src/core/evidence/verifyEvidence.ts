@@ -101,12 +101,20 @@ export function verifyFieldEvidence(field: string, e: FieldEvidence, expectation
       const cell = findCellBySource(ctx.tables, source);
       const where = describeSourceReference(source);
       if (e.state === 'missing') {
-        if (cell) {
+        if (cell?.formulaResultMissing) {
+          // Correct: the cell has a formula but the file holds no result, so the value is missing.
+          out.push({ code: 'FORMULA_RESULT_MISSING', severity: 'warning', field, source, message: `${field}: ${where} has the formula "=${cell.formula ?? ''}" but no calculated result in the file. Nothing is assumed.` });
+        } else if (cell) {
           out.push({ code: 'CONFLICTING_EVIDENCE', severity: 'blocking', field, source, message: `${field}: recorded as missing, but ${where} exists and holds ${show(cell.raw)}.` });
         }
+      } else if (cell?.formulaResultMissing) {
+        out.push({ code: 'CONFLICTING_EVIDENCE', severity: 'blocking', field, source, message: `${field}: recorded as ${e.state}, but ${where} is a formula with no calculated result in the file — the value is missing, not ${e.state}.` });
       } else if (!cell) {
         out.push({ code: 'SOURCE_CELL_NOT_FOUND', severity: 'blocking', field, source, message: `${field}: ${where} does not exist in the extracted document.` });
       } else {
+        if (cell.isFormula) {
+          out.push({ code: 'FORMULA_RESULT', severity: 'warning', field, source, message: `${field}: ${where} is the cached result of the formula "=${cell.formula ?? ''}"; the formula was not recalculated.` });
+        }
         if (!Object.is(cell.raw, e.raw)) {
           out.push({ code: 'RAW_TEXT_ALTERED', severity: 'blocking', field, source, message: `${field}: the recorded raw value ${show(e.raw)} differs from the cell's ${show(cell.raw)} at ${where}.` });
         } else if (expectation) {

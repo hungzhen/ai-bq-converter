@@ -36,6 +36,8 @@ export type FindingCode =
   | 'LOW_OCR_CONFIDENCE'
   | 'OCR_CONFIDENCE_UNKNOWN'
   | 'DERIVED_VALUE_NEEDS_REVIEW'
+  | 'FORMULA_RESULT'
+  | 'FORMULA_RESULT_MISSING'
   | 'REJECTED_EVIDENCE'
   // for information
   | 'BLANK_VALUE'

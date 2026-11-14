@@ -80,3 +80,20 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **The verifier only reports.** It checks sources, project and document, that raw values are unaltered, and that parsed values match a fresh reading of the cell. It never corrects, fills in or approves anything.
 - **Proposals until approved.** Every answer stays a proposal until a person approves it. Blocking findings can never be approved; warnings need an acknowledging note.
 - Details: `docs/EVIDENCE_VERIFIER.md`.
+
+## D-014 — Spreadsheet extraction (Stage 2F)
+- **Accepted files:** only `.xlsx`, `.xls` and `.csv`.
+- **Content decides the format.** If the name and the content disagree, the file is read by its content, with a warning.
+- **Refused files:**
+  - web pages or XML files saved with an Excel name
+  - very old Excel 2–4 files
+  - `.xlsm`, `.xlsb` and `.ods`
+  - password-protected, empty and corrupted files
+- **Values:** every cell keeps its raw stored value. Shown text and number format are kept separately and never replace it. Dates stay as their stored serial numbers.
+- **Formulas:** never recalculated. A missing cached result gives no value, and evidence for it must be "missing". Values from formulas are flagged during verification.
+- **Hidden content:** hidden and very hidden worksheets, rows and columns are extracted and marked.
+- **Positions:** kept exactly from row 1 / column A, including blank rows.
+- **Merged cells:** values under a merged range are kept, with a warning.
+- **CSV:** read by the converter's own reader, keeping every field as exact text. Encoding and delimiter are detected only when reliable (at least 90% of rows agree); otherwise the user must choose. Non-UTF-8 text is read only when its encoding is chosen.
+- **No classification:** extraction sets the document type to "unknown" and adds no column meanings, row types, classifications or calculations.
+- Details: `docs/SPREADSHEET_EXTRACTION.md`.

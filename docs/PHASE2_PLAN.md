@@ -46,8 +46,9 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   ├── parsing/                  ✅ numbers, special values, units (Stage 2D; see docs/VALUE_PARSING.md)
 │   │   ├── evidence/                 ✅ evidence verifier (Stage 2E; see docs/EVIDENCE_VERIFIER.md)
 │   │   ├── extraction/
-│   │   │   ├── format-detect.ts      ✅ real file type from file bytes (incl. PDF recognised)
-│   │   │   ├── spreadsheet/          ✅ XLSX / XLS / CSV → ExtractedTable
+│   │   │   ├── formatDetect.ts       ✅ real file type from file bytes (Stage 2F: .xlsx / .xls / .csv; PDF in Phase 6)
+│   │   │   ├── spreadsheet/          ✅ XLSX / XLS → ExtractedTable (Stage 2F; see docs/SPREADSHEET_EXTRACTION.md)
+│   │   │   ├── csv/                  ✅ CSV → ExtractedTable (own reader; keeps every field as text)
 │   │   │   ├── pdf-digital/          ◻ Phase 6 (interface defined in Phase 2)
 │   │   │   └── pdf-scanned/          ◻ Phase 7 (OCR; interface defined in Phase 2)
 │   │   ├── pipeline/                 ✅ orchestrator skeleton

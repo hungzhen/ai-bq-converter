@@ -38,7 +38,7 @@ function sheetRow(rowIndex: number, rowNumber: number, values: readonly (RawValu
 export const BILL_TABLE: ExtractedTable = {
   id: 't-bill-1',
   documentId: BQ_XLSX.id,
-  origin: { kind: 'worksheet', sheetName: 'Bill 1', sheetIndex: 0 },
+  origin: { kind: 'worksheet', sheetName: 'Bill 1', sheetIndex: 0, visibility: 'visible' },
   rows: [
     sheetRow(0, 1, ['No.', 'Description', 'Unit', 'Qty', 'Rate', 'Amount']),
     sheetRow(1, 9, [null, 'SYNTHETIC SECTION A', null, null, null, null]),
