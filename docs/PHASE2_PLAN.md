@@ -42,7 +42,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   ├── SOURCE.json               ✅ origin (repository, path, commit) and SHA-256 fingerprint
 │   │   └── README.md                 ✅ rules, and how to check for / refresh changes
 │   ├── core/                         ✅ pure TypeScript, no React
-│   │   ├── models/                   ✅ all converter data structures
+│   │   ├── models/                   ✅ all converter data structures (Stage 2C; see docs/DATA_MODELS.md)
 │   │   ├── parsing/                  ✅ numbers, special values, units
 │   │   ├── evidence/                 ✅ evidence verifier
 │   │   ├── extraction/
