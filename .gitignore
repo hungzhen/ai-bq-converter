@@ -1,0 +1,20 @@
+# Installed packages and build output (re-created by `npm install` / `npm run build`)
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment files may hold secrets — never commit them
+.env
+.env.*
+
+# Your real (even anonymised) documents: kept on your computer only, never committed
+tests/fixtures/private/*
+!tests/fixtures/private/.gitkeep
+
+# Editor and system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
