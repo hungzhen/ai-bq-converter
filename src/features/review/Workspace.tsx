@@ -218,6 +218,9 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
         <div className="min-h-0 flex-1 overflow-auto">
           <DraftRows
             drafts={drafts}
+            review={review}
+            reviewer={reviewer}
+            onReviewChange={onReviewChange}
             projectDetails={review.projectDetails ?? NO_PROJECT_DETAILS}
             traceProblems={traceProblems}
             onSaveProjectDetails={(d) => onReviewChange(setProjectDetails(review, d, now(), reviewer))}

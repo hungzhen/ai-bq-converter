@@ -41,13 +41,81 @@ export type HistoryAction =
   | 'decision_reopened'
   | 'review_restored'
   | 'review_imported'
-  | 'project_details_changed';
+  | 'project_details_changed'
+  | 'row_issue_resolved'
+  | 'row_resolution_withdrawn'
+  | 'row_approved'
+  | 'row_needs_changes'
+  | 'row_excluded'
+  | 'row_decision_reopened';
 
 export const HISTORY_ACTIONS: readonly HistoryAction[] = [
   'review_created', 'proposal_created', 'approved', 'rejected', 'correction_recorded',
   'alternative_chosen', 'warning_acknowledged', 'decision_reopened', 'review_restored', 'review_imported',
   'project_details_changed',
+  'row_issue_resolved', 'row_resolution_withdrawn', 'row_approved', 'row_needs_changes', 'row_excluded', 'row_decision_reopened',
 ];
+
+/** History actions about draft rows (Stage 2K). */
+export const ROW_ACTIONS: readonly HistoryAction[] = [
+  'row_issue_resolved', 'row_resolution_withdrawn', 'row_approved', 'row_needs_changes', 'row_excluded', 'row_decision_reopened',
+];
+
+// ---------------------------------------------------------------------------------------------
+// Draft-row decisions (Stage 2K). Stored with the review; the draft rows themselves are not.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * How a blocking issue may be resolved — each only for one kind of issue. A resolution never
+ * changes a value; it records that a person looked at the issue and what they confirmed.
+ *   confirmed_not_stated        a placeholder figure: the document does not state it, and the cell
+ *                               stays BLANK in the eventual export. It is NOT a zero or a supplied figure.
+ *   confirmed_not_part_of_item  values on a continuation row outside the description do not belong
+ *                               to this item (they stay unused).
+ * Negative values cannot be resolved: such a row can only be excluded from the upload (Stage 2K
+ * decision 2). Missing project details cannot be resolved with a note: they must be entered.
+ */
+export type IssueResolutionKind = 'confirmed_not_stated' | 'confirmed_not_part_of_item';
+export const RESOLUTION_FOR_ISSUE: Readonly<Record<IssueResolutionKind, string>> = {
+  confirmed_not_stated: 'REQUIRED_FIELD_NOT_IN_SOURCE',
+  confirmed_not_part_of_item: 'CONTINUATION_VALUES_NOT_USED',
+};
+
+/** What the draft row looked like when a person decided (to explain what changed later). */
+export type RowContentSummary = Readonly<Record<string, string>>;
+
+export interface DraftIssueResolution {
+  /** e.g. "draft:doc:sheet:1:7:REQUIRED_FIELD_NOT_IN_SOURCE:rate". */
+  readonly issueId: string;
+  readonly kind: IssueResolutionKind;
+  readonly by: string | null;
+  readonly at: string;
+  readonly note: string;
+  /** Fingerprint of the row's source-derived content when resolved. A different row = outdated. */
+  readonly rowFingerprint: string;
+  readonly contentSummary: RowContentSummary;
+}
+
+export type DraftRowStatus = 'approved' | 'needs_changes' | 'excluded';
+
+export interface DraftRowDecision {
+  readonly status: DraftRowStatus;
+  readonly by: string | null;
+  readonly at: string;
+  /** Required to exclude a row and to approve a row with warnings. */
+  readonly note: string | null;
+  /** Warning issue ids acknowledged by an approval's note. */
+  readonly acknowledgedWarnings: readonly string[];
+  readonly rowFingerprint: string;
+  readonly contentSummary: RowContentSummary;
+}
+
+export interface DraftRowState {
+  /** The draft row's id, e.g. "draft:doc:sheet:1:7" (table and row of the item). */
+  readonly draftId: string;
+  readonly resolutions: readonly DraftIssueResolution[];
+  readonly decision: DraftRowDecision | null;
+}
 
 /**
  * Project details typed in by a person (Stage 2J). Never inferred from the file name or contents.
@@ -87,6 +155,8 @@ export interface HistoryEvent {
   readonly warningCodes?: readonly string[];
   /** The imported backup's content checksum (action "review_imported") — used to notice the same backup imported again. */
   readonly backupChecksum?: string;
+  /** A draft row's decisions before and after (row_* actions). */
+  readonly draftRow?: { readonly draftId: string; readonly previous: DraftRowState | null; readonly next: DraftRowState };
   /** Project details before and after (action "project_details_changed"). */
   readonly details?: { readonly previous: ProjectDetails | null; readonly next: ProjectDetails };
 }
@@ -108,6 +178,8 @@ export interface SavedReview {
   readonly history: readonly HistoryEvent[];
   /** Entered by a person (Stage 2J). Absent in reviews saved before Stage 2J. */
   readonly projectDetails?: ProjectDetails;
+  /** Decisions about draft rows (Stage 2K). Absent in reviews saved before Stage 2K. */
+  readonly draftRows?: readonly DraftRowState[];
 }
 
 export interface ReviewCounts {
@@ -257,6 +329,33 @@ export function setProjectDetails(review: SavedReview, input: ProjectDetails, at
     history: [
       ...review.history,
       { sequence: review.history.length + 1, at, by, action: 'project_details_changed', summary: `Project details changed: ${changed.join(', ')}.`, details: { previous, next } },
+    ],
+  });
+}
+
+/**
+ * Records a new state for one draft row, with a history entry keeping the earlier state.
+ * Callers (src/core/staging/rowDecisions.ts) check the rules first.
+ */
+export function recordDraftRowChange(
+  review: SavedReview,
+  next: DraftRowState,
+  action: HistoryAction,
+  summary: string,
+  at: string,
+  by: string | null,
+  note?: string,
+): SavedReview {
+  if (!ROW_ACTIONS.includes(action)) throw new Error(`"${action}" is not a draft-row action.`);
+  const rows = review.draftRows ?? [];
+  const previous = rows.find((r) => r.draftId === next.draftId) ?? null;
+  return frozenCopy<SavedReview>({
+    ...review,
+    savedAt: at,
+    draftRows: previous ? rows.map((r) => (r.draftId === next.draftId ? next : r)) : [...rows, next],
+    history: [
+      ...review.history,
+      { sequence: review.history.length + 1, at, by, action, summary, ...(note ? { note } : {}), draftRow: { draftId: next.draftId, previous, next } },
     ],
   });
 }

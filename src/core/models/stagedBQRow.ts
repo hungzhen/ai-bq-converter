@@ -177,7 +177,7 @@ function evidenceIssues(rowId: string, field: string, e: FieldEvidence): Validat
     out.push({ id: issueId(rowId, code, field), code, severity, message, field, sources: e.sources });
 
   if (isNegative(e)) {
-    add('NEGATIVE_VALUE', 'blocking', `${field} is negative (${String(e.raw)}). It is kept as it is; a person must resolve it before export.`);
+    add('NEGATIVE_VALUE', 'blocking', `${field} is negative (${String(e.raw)}). It is kept exactly as it is and never turned positive; the row can only be excluded from the upload (D-004).`);
   }
   if (e.state === 'unparseable') add('UNPARSEABLE_VALUE', 'warning', `${field}: "${String(e.raw)}" could not be understood.`);
   if (e.state === 'missing') add('SOURCE_VALUE_MISSING', 'warning', `${field} could not be read from the document.${e.note ? ` ${e.note}` : ''}`);

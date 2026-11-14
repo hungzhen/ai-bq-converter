@@ -1,4 +1,4 @@
-# Draft Rows (Stage 2J)
+# Draft Rows (Stages 2J–2K)
 
 A plain-English guide to the **Draft rows** tab: the draft Cost Library rows (`FullBQItem`, wrapped in `StagedBQRow`) built from your approved decisions.
 
@@ -74,3 +74,51 @@ Reviews and backups saved by Stage 2I still load, import and reopen; they need n
 ![Draft rows, project details entered](screenshots/15-draft-rows-ready.png)
 
 ![A draft value shown in its source cell](screenshots/17-draft-value-source-cell.png)
+
+## Your decisions about draft rows (Stage 2K)
+
+You decide about each draft row in its **Decide / resolve…** panel. Nothing you decide changes a value, and nothing is exported yet.
+
+### Resolving blocking issues
+
+Each blocking issue is resolved on its own, with a note:
+
+| Issue | What you can do |
+|---|---|
+| Placeholder quantity, rate or amount | **Confirm: … is not stated in the document — leave blank.** The value stays a placeholder, and the screen shows "confirmed: stays blank in the export". It is never a zero or a supplied figure. |
+| Values on a continuation row not used | **Confirm: the continuation-row values are not part of this item.** |
+| Negative value | Cannot be resolved. The row can only be **excluded from the upload**. Its value stays negative (for example -200) and stays listed with its evidence. |
+| Project name or year missing | Cannot be resolved with a note; enter them. |
+
+A resolution can be withdrawn while the row is not approved. The earlier resolution stays in the history.
+
+### Deciding a row
+
+- **Approve row:** only when every blocking issue is resolved. If the row has warnings, your note acknowledges them.
+- **Needs changes:** marks the row for another look.
+- **Exclude from upload:** needs a reason. The draft row is not deleted or changed. It stays listed under "Excluded from the upload" with its original values, source reference, reason and history.
+- **Change this decision:** reopens the row. The earlier decision stays in the history.
+- **Approve rows with no issues…:** approves, after a confirmation, only rows with no issues at all.
+
+Each table shows how many rows are approved, excluded, needing changes, not yet decided and outdated, and whether it would be **ready for export**: every row approved or excluded, and the project details complete. Nothing is exported in Stage 2K.
+
+### Outdated decisions
+
+Every resolution and decision remembers a fingerprint of the row's source-derived content: its values, evidence, cells, issues, headings and trade labels. If you later change a review decision so that a row changes, its earlier resolutions and decision become **outdated**:
+
+- the row turns amber and is marked "⚠ Outdated — redo";
+- the panel shows exactly what changed (for example, Amount: "400" → "not stated (no column)");
+- you must resolve and decide again. The earlier records stay in the history.
+
+Entering or changing the project details does not make decisions outdated: they are not source-derived. Decisions for rows that are no longer draft rows (for example, a row you re-classified as a note) are listed as not applied.
+
+The filter **Show** narrows the list to rows with unresolved blocking issues, rows not yet decided, excluded rows, or outdated rows.
+
+Reviewer names are typed in, not verified. The history is append-only through the app, but it is not tamper-proof.
+
+![Resolving issues and deciding rows](screenshots/19-row-decisions.png)
+
+![Excluded negative row, kept with its value](screenshots/20-excluded-negative.png)
+
+![An outdated approval with what changed](screenshots/21-outdated-approval.png)
+

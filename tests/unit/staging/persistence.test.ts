@@ -16,7 +16,7 @@ import {
   setProjectDetails,
   validateReviewRecord,
 } from '../../../src/core/review/index.ts';
-import { verifyDrafts } from '../../../src/core/staging/index.ts';
+import { decideDraftRow, verifyDrafts, viewRow } from '../../../src/core/staging/index.ts';
 import { createIndexedDbReviewStore, createMemoryReviewStore } from '../../../src/storage/reviewStore.ts';
 import { importReviewBackup } from '../../../src/storage/importReview.ts';
 import { draftsBq } from '../../helpers/synthetic/draftLayouts.ts';
@@ -123,5 +123,56 @@ describe('backward compatibility with Stage 2I', () => {
     expect(loaded?.ok).toBe(true);
     expect(restoreReview((loaded as { review: SavedReview }).review, await reread(old, oldFileBytes())).ok).toBe(true);
     expect(readFileSync(`${FIXTURES}/SYNTHETIC_BQ.xlsx`).equals(before)).toBe(true);
+  });
+});
+
+describe('Stage 2K row decisions are kept and older reviews still work', () => {
+  const FIX2J = resolve(import.meta.dirname, '../../fixtures/stage2j');
+
+  it('row decisions survive saving, reloading, restoring and a backup round trip', async () => {
+    const { run, review } = await newReview(draftsBq(), 'SYNTHETIC_DRAFTS.xlsx');
+    let r = withProject(approveAll(review));
+    const t = drafts(r, run).tables[0]!;
+    const neg = t.drafts.find((d) => d.itemRowIndex === 6)!;
+    const clean = t.drafts.find((d) => d.itemRowIndex === 7)!;
+    r = decideDraftRow(r, neg, 'excluded', 'Negative credit: excluded from the upload.', AT, 'Synthetic Reviewer');
+    r = decideDraftRow(r, clean, 'approved', null, AT, 'Synthetic Reviewer');
+
+    const browserDb = new IDBFactory();
+    await createIndexedDbReviewStore(browserDb).put(r);
+    const loaded = (await createIndexedDbReviewStore(browserDb).load(r.reviewId)) as { ok: true; review: SavedReview };
+    expect(loaded.ok).toBe(true);
+    const again = await reread(loaded.review, draftsBq());
+    expect(restoreReview(loaded.review, again).ok).toBe(true);
+
+    const outcome = await importReviewBackup(createMemoryReviewStore(), new TextEncoder().encode(await createBackup(loaded.review, AT)), opts);
+    const imported = (outcome as { review: SavedReview }).review;
+    for (const rv of [loaded.review, imported]) {
+      const t2 = drafts(rv, again).tables[0]!;
+      const states = rv.draftRows ?? [];
+      expect(viewRow(t2.drafts.find((d) => d.itemRowIndex === 6)!, states.find((s) => s.draftId === neg.row.id)!).effective).toBe('excluded');
+      expect(viewRow(t2.drafts.find((d) => d.itemRowIndex === 7)!, states.find((s) => s.draftId === clean.row.id)!).effective).toBe('approved');
+      expect(t2.drafts.find((d) => d.itemRowIndex === 6)!.row.item.amount).toBe(-200);
+    }
+  });
+
+  it('a Stage 2J backup (project details, no row decisions) imports, reopens and gets row decisions', async () => {
+    const bytes = new Uint8Array(readFileSync(`${FIX2J}/SYNTHETIC_DRAFTS.review-backup.json`));
+    const read = await readBackup(bytes);
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.review.draftRows).toBeUndefined();
+    const file = new Uint8Array(readFileSync(`${FIX2J}/SYNTHETIC_DRAFTS.xlsx`));
+    const again = await reread(read.review, file);
+    expect(restoreReview(read.review, again).ok).toBe(true);
+    const t = drafts(read.review, again).tables[0]!;
+    expect(t.drafts.map((d) => viewRow(d, null).effective).every((s) => s === 'pending')).toBe(true);
+    const r = decideDraftRow(read.review, t.drafts.find((d) => d.itemRowIndex === 7)!, 'approved', null, AT, null);
+    expect(validateReviewRecord(r)).toEqual([]);
+  });
+
+  it('a Stage 2I backup still imports and has no row decisions until a reviewer makes them', async () => {
+    const read = await readBackup(oldBackupBytes());
+    expect(read.ok && read.review.draftRows).toBeUndefined();
   });
 });

@@ -110,6 +110,12 @@ The **Draft rows** tab (next to "Review proposals") shows the draft Cost Library
 
 ![One table blocked, the other ready](screenshots/18-blocked-and-ready-tables.png)
 
+Since Stage 2K, each draft row also has **Decide / resolve…**: you can resolve blocking issues, approve the row, mark it as needing changes, or exclude it from the upload. Details: [`DRAFT_ROWS.md`](DRAFT_ROWS.md#your-decisions-about-draft-rows-stage-2k).
+
+![Resolving issues and deciding rows](screenshots/19-row-decisions.png)
+
+![An outdated approval](screenshots/21-outdated-approval.png)
+
 ## 7. Not yet
 
 - There is no export to the Cost Library yet.

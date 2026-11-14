@@ -7,7 +7,7 @@ A web application that reads construction documents and converts them into the s
 
 The input formats are Excel, CSV, digital PDF and scanned PDF.
 
-**Current status:** Phase 2, Stage 2J. In place so far:
+**Current status:** Phase 2, Stage 2K. In place so far:
 - the project foundation
 - a read-only copy of the Cost Library's `costLibrary.ts` (the `FullBQItem` target format)
 - the core data models ([`docs/DATA_MODELS.md`](docs/DATA_MODELS.md))
@@ -18,6 +18,7 @@ The input formats are Excel, CSV, digital PDF and scanned PDF.
 - the pipeline and the first interface: choose a spreadsheet, inspect the full extracted source, and review, approve or reject proposals with their evidence ([`docs/USER_INTERFACE.md`](docs/USER_INTERFACE.md))
 - saving reviews in this browser, reopening them against the original file, and review backups ([`docs/REVIEW_PERSISTENCE.md`](docs/REVIEW_PERSISTENCE.md))
 - draft Cost Library rows built from your approved decisions, with every value traced to its cell and every source row accounted for ([`docs/DRAFT_ROWS.md`](docs/DRAFT_ROWS.md))
+- resolving blocking issues and approving or excluding draft rows, with outdated decisions flagged when a row changes ([`docs/DRAFT_ROWS.md`](docs/DRAFT_ROWS.md#your-decisions-about-draft-rows-stage-2k))
 
 The copy is in `src/vendor/cost-library/` (see its [README](src/vendor/cost-library/README.md)). To check whether the Cost Library's file has changed since it was copied (this only reads files and never updates the copy):
 

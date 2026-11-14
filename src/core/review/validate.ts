@@ -27,7 +27,17 @@
  */
 import { stableKey } from '../evidence/findings.ts';
 import { DECISION_KINDS } from '../../providers/types.ts';
-import { HISTORY_ACTIONS, type ProjectDetails, REVIEW_FORMAT_VERSION, REVIEW_KIND, type SavedReview, projectDetailsProblems, snapshot } from './reviewRecord.ts';
+import {
+  HISTORY_ACTIONS,
+  type ProjectDetails,
+  RESOLUTION_FOR_ISSUE,
+  REVIEW_FORMAT_VERSION,
+  REVIEW_KIND,
+  ROW_ACTIONS,
+  type SavedReview,
+  projectDetailsProblems,
+  snapshot,
+} from './reviewRecord.ts';
 import type { Proposal } from '../evidence/proposals.ts';
 
 type Obj = Record<string, unknown>;
@@ -37,7 +47,44 @@ const isDate = (v: unknown) => isString(v) && v !== '' && !Number.isNaN(Date.par
 const isName = (v: unknown) => v === null || isString(v);
 const STATUSES = ['proposed', 'approved', 'rejected'];
 const SEVERITIES = ['info', 'warning', 'blocking'];
-const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported', 'project_details_changed'];
+const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported', 'project_details_changed', ...ROW_ACTIONS];
+const ROW_STATUSES = ['approved', 'needs_changes', 'excluded'];
+const isStringMap = (v: unknown) => isObject(v) && Object.values(v).every(isString);
+
+/** A well-formed draft-row state, obeying the rules that need no draft rows (Stage 2K). */
+function rowStateProblems(v: unknown, where: string): string[] {
+  if (!isObject(v) || !isString(v['draftId']) || v['draftId'] === '') return [`${where}: the draft-row record is invalid.`];
+  const errors: string[] = [];
+  const id = v['draftId'];
+  const resolutions = v['resolutions'];
+  if (!Array.isArray(resolutions)) errors.push(`${where} (${id}): its issue resolutions are missing.`);
+  else {
+    const seen = new Set<string>();
+    resolutions.forEach((x, n) => {
+      const w = `${where} (${id}) resolution ${n + 1}`;
+      if (!isObject(x) || !isString(x['issueId']) || !isDate(x['at']) || !isName(x['by']) || !isString(x['rowFingerprint']) || !HEX64.test(x['rowFingerprint']) || !isStringMap(x['contentSummary'])) return errors.push(`${w}: invalid.`);
+      const code = RESOLUTION_FOR_ISSUE[x['kind'] as keyof typeof RESOLUTION_FOR_ISSUE];
+      if (!code) errors.push(`${w}: unknown kind of resolution "${String(x['kind'])}".`);
+      else if (!x['issueId'].startsWith(`${id}:${code}:`)) errors.push(`${w}: a "${String(x['kind'])}" resolution cannot resolve issue "${x['issueId']}".`);
+      if (!isString(x['note']) || x['note'].trim() === '') errors.push(`${w}: a resolution needs a note.`);
+      if (seen.has(x['issueId'])) errors.push(`${w}: the issue is resolved twice.`);
+      seen.add(x['issueId']);
+    });
+  }
+  const d = v['decision'];
+  if (d !== null) {
+    const w = `${where} (${id}) decision`;
+    if (!isObject(d) || !ROW_STATUSES.includes(String(d['status'])) || !isDate(d['at']) || !isName(d['by']) || !isString(d['rowFingerprint']) || !HEX64.test(d['rowFingerprint']) || !isStringMap(d['contentSummary']) || (d['note'] !== null && !isString(d['note'])) || !Array.isArray(d['acknowledgedWarnings']) || d['acknowledgedWarnings'].some((x) => !isString(x))) {
+      errors.push(`${w}: invalid.`);
+    } else {
+      const blankNote = d['note'] === null || (d['note'] as string).trim() === '';
+      if (d['status'] === 'excluded' && blankNote) errors.push(`${w}: excluding a row needs a note giving the reason.`);
+      if (d['status'] === 'approved' && (d['acknowledgedWarnings'] as unknown[]).length > 0 && blankNote) errors.push(`${w}: approved with warnings but no acknowledging note.`);
+      if (d['status'] !== 'approved' && (d['acknowledgedWarnings'] as unknown[]).length > 0) errors.push(`${w}: only an approval acknowledges warnings.`);
+    }
+  }
+  return errors;
+}
 
 /** A well-formed ProjectDetails object (absent fields are refused; null means "not entered"). */
 function detailsShapeProblems(v: unknown, where: string): string[] {
@@ -69,6 +116,18 @@ export function structureProblems(value: unknown): string[] {
   if (!Array.isArray(r['sheets']) || r['sheets'].some((s) => !isObject(s) || !isString(s['name']))) errors.push('The worksheet list is missing or invalid.');
   if (!isName(r['reviewer'])) errors.push('The reviewer name is invalid.');
   if (r['projectDetails'] !== undefined) errors.push(...detailsShapeProblems(r['projectDetails'], 'Project details'));
+  if (r['draftRows'] !== undefined) {
+    if (!Array.isArray(r['draftRows'])) errors.push('The draft-row decisions are invalid.');
+    else {
+      const ids = new Set<string>();
+      r['draftRows'].forEach((x, n) => {
+        errors.push(...rowStateProblems(x, `Draft-row decision ${n + 1}`));
+        const id = isObject(x) ? String(x['draftId']) : '';
+        if (ids.has(id)) errors.push(`Draft-row decision ${n + 1}: "${id}" appears twice.`);
+        ids.add(id);
+      });
+    }
+  }
 
   const proposals = r['proposals'];
   if (!Array.isArray(proposals)) {
@@ -129,6 +188,16 @@ export function structureProblems(value: unknown): string[] {
         }
       }
       if (e['action'] === 'project_details_changed' && d === undefined) errors.push(`${where}: the changed project details are missing.`);
+      const dr = e['draftRow'];
+      if (dr !== undefined) {
+        if (!isObject(dr) || !isString(dr['draftId'])) errors.push(`${where}: its draft-row record is invalid.`);
+        else {
+          if (dr['previous'] !== null) errors.push(...rowStateProblems(dr['previous'], where));
+          errors.push(...rowStateProblems(dr['next'], where));
+          if (isObject(dr['next']) && dr['next']['draftId'] !== dr['draftId']) errors.push(`${where}: its draft-row record is for another row.`);
+        }
+      }
+      if (ROW_ACTIONS.includes(e['action'] as never) && dr === undefined) errors.push(`${where}: the changed draft-row decisions are missing.`);
     });
   }
   return errors;
@@ -197,6 +266,7 @@ export function historyProblems(review: SavedReview): string[] {
   const pending = new Map<string, { next: string; actions: Set<string> }>(); // acknowledgement / alternative awaiting its approval
   const key = (v: unknown) => stableKey(v);
   let details: string = key(null); // project details as recorded so far (none before Stage 2J)
+  const rowStates = new Map<string, string>(); // draft-row decisions as recorded so far (none before Stage 2K)
 
   review.history.forEach((e, n) => {
     const where = `History entry ${n + 1} (${e.action})`;
@@ -208,6 +278,11 @@ export function historyProblems(review: SavedReview): string[] {
         if (key(e.details.previous) !== details) errors.push(`${where}: its earlier project details do not match the details recorded before it.`);
         details = key(e.details.next);
       } else if (e.details) errors.push(`${where}: only a "project details changed" entry carries project details.`);
+      if (ROW_ACTIONS.includes(e.action) && e.draftRow) {
+        const id = e.draftRow.draftId;
+        if (key(e.draftRow.previous) !== (rowStates.get(id) ?? key(null))) errors.push(`${where}: its earlier decisions for draft row "${id}" do not match the decisions recorded before it.`);
+        rowStates.set(id, key(e.draftRow.next));
+      } else if (e.draftRow) errors.push(`${where}: only a draft-row entry carries draft-row decisions.`);
       return;
     }
     const p = e.proposalId === undefined ? undefined : proposals.get(e.proposalId);
@@ -264,6 +339,9 @@ export function historyProblems(review: SavedReview): string[] {
   });
 
   if (key(review.projectDetails ?? null) !== details) errors.push('The project details do not match the last project details recorded in the history.');
+  const currentRows = new Map((review.draftRows ?? []).map((r) => [r.draftId, key(r)]));
+  for (const [id, recorded] of rowStates) if (currentRows.get(id) !== recorded) errors.push(`The decisions for draft row "${id}" do not match the last decisions recorded in the history.`);
+  for (const id of currentRows.keys()) if (!rowStates.has(id)) errors.push(`The decisions for draft row "${id}" have no entry in the history.`);
   for (const p of review.proposals) {
     const where = `Proposal "${p.id}"`;
     if (pending.has(p.id)) errors.push(`${where}: the history ends with an acknowledgement or chosen alternative that has no approval.`);

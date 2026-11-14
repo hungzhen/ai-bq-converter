@@ -159,3 +159,22 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **Backward compatibility:** reviews and backups saved by Stage 2I need no conversion and still load, import and reopen. Their project details read as "not entered". The review format version stays 1.
 - Details: `docs/DRAFT_ROWS.md`.
 
+## D-019 — Resolving issues and approving draft rows (Stage 2K)
+- **Decisions about draft rows, not changes to them.** Resolutions and row decisions are saved in the review (`draftRows`) with history entries. No value is ever changed. Nothing is exported.
+- **Decision 1, placeholders:** a placeholder quantity, rate or amount is resolved only by confirming, with a note, that the document does not state it. It stays blank in the eventual export. It is never shown or stored as a zero or a supplied figure; the value stays a placeholder.
+- **Decision 2, negatives:** option (a). A negative value cannot be resolved, and such a row cannot be approved. It can only be excluded from the upload, with a reason. It keeps its negative value (for example -200 stays -200) and its source evidence in the reconciliation. Nothing is ever turned positive.
+- **Decision 3, bulk approval:** only rows with no issues at all, after an explicit confirmation step.
+- **Decision 4, outdated decisions:**
+  - Each resolution and row decision stores a SHA-256 fingerprint of the row's source-derived content (values, evidence, sources, issues, headings, trade labels, description parts) and a readable summary.
+  - If a changed review decision alters the row, those records become outdated. They are shown in amber with what changed, and must be redone. The earlier ones stay in the history.
+  - Project details and dates are not source-derived, so changing them does not make decisions outdated.
+  - Decisions for rows that no longer exist are listed and not applied.
+- **Decision 5, warnings:** blocking issues are resolved one at a time. Warnings are acknowledged by the note given when the row is approved.
+- **Always:**
+  - A row with an unresolved blocking issue is never approved; an approval stored against such a row is shown as not valid.
+  - Excluding a row needs a reason and never deletes or alters the draft row. Excluded rows stay listed with their original values, sources, reason and history.
+  - Missing project details are never resolved with a note; they must be entered.
+- **Integrity:** the load and import checks cover row decisions, including rules that need no file and consistency with the history. Reviewer names are typed in and not verified. The history is append-only through the app but is not tamper-proof.
+- **Compatibility:** Stage 2I and 2J reviews and backups load and reopen unchanged, with no row decisions until a reviewer makes them. The review format version stays 1.
+- **Stage 2L (planned):** the Cost Library upload workbook and the reconciliation workbook. The Cost Library import compatibility test will be proposed separately and needs explicit approval.
+

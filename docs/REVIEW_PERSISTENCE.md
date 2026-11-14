@@ -23,6 +23,7 @@ A **saved review** (`src/core/review/reviewRecord.ts`) contains:
 - every original proposal, with its evidence (cited cells, quoted text) and verification report
 - the decisions: approved / rejected / unresolved, notes, acknowledged warnings, chosen alternatives and corrections
 - the reviewer name as typed (or "not recorded") and the provider (`rule-based@0.1.0`)
+- the project details (Stage 2J) and the decisions about draft rows (Stage 2K)
 - the **history** of every change
 
 It does **not** contain the file's contents. To reopen a review you choose the original file again.
