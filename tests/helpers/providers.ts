@@ -44,7 +44,7 @@ export function syntheticRuleProvider(): InterpretationProvider {
     async detectTableRegions(ctx) {
       const t = firstTable(ctx);
       const last = t.rows[t.rows.length - 1]!.rowIndex;
-      return [{ ...base, decisionKind: 'tableRegion', value: { tableId: t.id, headerRowIndexes: [0], firstDataRowIndex: 1, lastDataRowIndex: last, include: true }, confidence: 0.9, evidence: [{ tableId: t.id, rowIndex: 0 }], reasoning: 'First row holds header words.' }];
+      return [{ ...base, decisionKind: 'tableRegion', value: { tableId: t.id, headerRowIndexes: [0], repeatedHeaderRowIndexes: [], firstDataRowIndex: 1, lastDataRowIndex: last, include: true }, confidence: 0.9, evidence: [{ tableId: t.id, rowIndex: 0 }], reasoning: 'First row holds header words.' }];
     },
     async mapColumns(ctx) {
       const t = firstTable(ctx);

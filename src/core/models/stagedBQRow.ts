@@ -35,12 +35,18 @@ import { type SourceReference, describeSourceReference, toCostLibrarySourceRefer
 
 /** What kind of row this is in the source document (Revision 2 §7). */
 export type BqRowClass =
+  | 'title' // title / preamble text above the table
+  | 'column_header' // a column-heading row (first or repeated on a later page)
   | 'bill_heading'
   | 'section_heading'
   | 'main_heading'
   | 'subheading'
   | 'secondary_subheading'
   | 'priced_item'
+  | 'description_only_item' // an item with a description but no unit or figures
+  | 'provisional_sum'
+  | 'prime_cost_sum'
+  | 'percentage_item' // e.g. "Allow for profit" with unit % (only when the row shows it)
   | 'continuation'
   | 'note'
   | 'note_label'
@@ -50,7 +56,9 @@ export type BqRowClass =
   | 'carried_forward'
   | 'collection'
   | 'summary'
-  | 'reference'
+  | 'reference' // page numbers, "continued", drawing references
+  | 'blank' // no content (spacer)
+  | 'unknown' // cannot be determined from the row
   | 'ignore';
 
 /** Required FullBQItem fields that must come from the document. */

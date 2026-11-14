@@ -95,3 +95,17 @@ These are shared tests that every provider must pass: the test provider now, the
 - cite cells for every answer
 - pass the verifier
 - never supply a figure, unit or description
+
+## 6. Additions in Stage 2G
+
+**Alternatives.** An answer may carry alternative readings of the same cells.
+- Each alternative is checked like the main answer: allowed fields only, a valid value, covered by the citations, and different from the main answer and from the other alternatives.
+- Approving such an answer requires choosing a reading explicitly.
+
+**Table regions** list repeated header rows. They must be real rows after the first header, and they must be cited.
+
+**Trade / Sub-trade labels** must be in the Cost Library taxonomy (`src/vendor/cost-library/taxonomy.ts`).
+
+**Review states:** `failed_verification`, `verified` (not approved), `approved` and `rejected`.
+
+**Bulk approval** covers only straightforward table-region, column and row proposals, with no alternatives and no warnings.

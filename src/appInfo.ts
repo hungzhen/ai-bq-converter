@@ -4,7 +4,7 @@
  */
 export const APP_INFO = {
   name: 'AI BQ Converter',
-  stage: 'Phase 2 — Stage 2F (spreadsheet extraction)',
+  stage: 'Phase 2 — Stage 2G (rule-based provider)',
   /** How documents are interpreted. Phase 2 uses conventional rules only — no AI. */
   processingMode: 'Conventional rule-based processing — no AI in use',
   /** Pinned SheetJS Community Edition version (official CDN package). */

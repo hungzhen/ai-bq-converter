@@ -21,7 +21,7 @@ const all = (i: unknown, c: Parameters<typeof verifyInterpretation>[1] = ctx) =>
 const base = { method: 'rule-based', providerId: 'synthetic-test-rules@0.0.1', status: 'proposed', confidence: 0.9, reasoning: 'synthetic rule' } as const;
 const good: Record<string, Interpretation> = {
   documentType: { ...base, decisionKind: 'documentType', value: { documentType: 'standard_bq' }, evidence: [{ tableId: T, rowIndex: 0, columnIndex: 3 }], quotedText: ['Qty'] },
-  tableRegion: { ...base, decisionKind: 'tableRegion', value: { tableId: T, headerRowIndexes: [0], firstDataRowIndex: 1, lastDataRowIndex: 5, include: true }, evidence: [{ tableId: T, rowIndex: 0 }] },
+  tableRegion: { ...base, decisionKind: 'tableRegion', value: { tableId: T, headerRowIndexes: [0], repeatedHeaderRowIndexes: [], firstDataRowIndex: 1, lastDataRowIndex: 5, include: true }, evidence: [{ tableId: T, rowIndex: 0 }] },
   columnRole: { ...base, decisionKind: 'columnRole', value: { tableId: T, columnIndex: 3, role: 'quantity' }, evidence: [{ tableId: T, rowIndex: 0, columnIndex: 3 }], quotedText: ['Qty'] },
   rowClass: { ...base, decisionKind: 'rowClass', value: { tableId: T, rowIndex: 1, rowClass: 'main_heading' }, evidence: [{ tableId: T, rowIndex: 1, columnIndex: 1 }], quotedText: ['SYNTHETIC SECTION A'] },
   hierarchy: { ...base, decisionKind: 'hierarchy', value: { tableId: T, rowIndex: 2, level: 'item', parentRowIndex: 1 }, evidence: [{ tableId: T, rowIndex: 2 }, { tableId: T, rowIndex: 1 }] },
@@ -89,7 +89,7 @@ describe('citations must be real, in the right place, and cover the decision', (
   });
 
   it('every header row of a table region must be cited', () => {
-    const answer = { ...good['tableRegion']!, value: { tableId: T, headerRowIndexes: [0, 1], firstDataRowIndex: 2, lastDataRowIndex: 5, include: true } };
+    const answer = { ...good['tableRegion']!, value: { tableId: T, headerRowIndexes: [0, 1], repeatedHeaderRowIndexes: [], firstDataRowIndex: 2, lastDataRowIndex: 5, include: true } };
     expect(blocking(answer)).toEqual(['EVIDENCE_DOES_NOT_COVER_DECISION']);
   });
 
@@ -109,7 +109,7 @@ describe('the decision value itself is checked', () => {
     ['unknown row class', { ...good['rowClass']!, value: { tableId: T, rowIndex: 1, rowClass: 'probably_item' } }],
     ['unknown hierarchy level', { ...good['hierarchy']!, value: { tableId: T, rowIndex: 2, level: 'chapter', parentRowIndex: 1 } }],
     ['parent after the row', { ...good['hierarchy']!, value: { tableId: T, rowIndex: 2, level: 'item', parentRowIndex: 5 } }],
-    ['data range back to front', { ...good['tableRegion']!, value: { tableId: T, headerRowIndexes: [0], firstDataRowIndex: 5, lastDataRowIndex: 1, include: true } }],
+    ['data range back to front', { ...good['tableRegion']!, value: { tableId: T, headerRowIndexes: [0], repeatedHeaderRowIndexes: [], firstDataRowIndex: 5, lastDataRowIndex: 1, include: true } }],
     ['empty classification label', { ...good['classificationSuggestion']!, value: { tableId: T, rowIndex: 2, field: 'tradeWork', label: ' ' } }],
     ['classification of a non-classification field', { ...good['classificationSuggestion']!, value: { tableId: T, rowIndex: 2, field: 'quantity', label: 'x' } }],
     ['relationship with itself', { ...good['relationship']!, value: { fromDocumentId: BQ_XLSX.id, toDocumentId: BQ_XLSX.id, kind: 'supersedes' } }],

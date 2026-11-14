@@ -20,7 +20,8 @@ The same details are in machine-readable form in `SOURCE.json`.
 | `utils/billArea.d.ts` | Stand-in (exact transcription) | `AreaUnit`, `BillAreaSource`, referenced by the copy |
 | `utils/benchmark.d.ts` | Stand-in (placeholder `unknown`) | `BenchmarkSettings`, never used by the converter |
 | `utils/projectDetails.d.ts` | Stand-in (placeholder `unknown`) | `ProjectDetails`, never used by the converter |
-| `index.ts` | Converter file | The only entry point: re-exports **types only** |
+| `index.ts` | Converter file | The entry point for types: re-exports **types only** |
+| `taxonomy.ts` | Converter file | Re-exports only the two reference lists `UNIFIED_TRADE_PACKAGES` and `TRADE_SUBTRADES`, used to suggest and check Trade / Sub-trade labels. No functions |
 | `SOURCE.json` | Converter file | Where the copy came from, and its fingerprint |
 
 The stand-ins are `.d.ts` (type declaration) files, so they contain no code. Each starts with the banner `STAND-IN — NOT AN ORIGINAL COST LIBRARY FILE`. They sit at `utils/…` because that is where the copied file looks for them (`import('../utils/…')`), which lets the copy stay unchanged.
@@ -28,7 +29,7 @@ The stand-ins are `.d.ts` (type declaration) files, so they contain no code. Eac
 ## Rules
 
 1. **Never edit `types/costLibrary.ts`.** A test compares its fingerprint with `SOURCE.json`, so any edit, even one character, makes `npm test` fail.
-2. **Import only from `index.ts`.** It exports types only. Cost Library functions, especially `parseCleanRate`, which removes minus signs, are not used by the converter.
+2. **Import only from `index.ts`** (types) **or `taxonomy.ts`** (the two trade lists). Cost Library functions, especially `parseCleanRate`, which removes minus signs, are not used by the converter.
 3. **Refresh only when the owner asks.** Nothing updates the copy automatically.
 
 ## Checking whether the Cost Library has changed

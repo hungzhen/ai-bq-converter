@@ -59,7 +59,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   ├── providers/
 │   │   ├── types.ts                  ✅ InterpretationProvider interface
 │   │   ├── registry.ts               ✅
-│   │   ├── rule-based/               ✅ first rules: document type, header row, columns, rows
+│   │   ├── rule-based/               ✅ first rules: document type, regions, columns, rows, hierarchy, trades (Stage 2G; see docs/RULE_BASED_PROVIDER.md)
 │   │   └── claude/README.md          ✅ design notes only — no code, no key
 │   ├── rules/                        ✅ editable JSON rule files + checking schemas
 │   ├── storage/                      ✅ StorageAdapter interface + in-memory adapter

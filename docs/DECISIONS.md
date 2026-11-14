@@ -97,3 +97,12 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **CSV:** read by the converter's own reader, keeping every field as exact text. Encoding and delimiter are detected only when reliable (at least 90% of rows agree); otherwise the user must choose. Non-UTF-8 text is read only when its encoding is chosen.
 - **No classification:** extraction sets the document type to "unknown" and adds no column meanings, row types, classifications or calculations.
 - Details: `docs/SPREADSHEET_EXTRACTION.md`.
+
+## D-015 — First rule-based provider (Stage 2G)
+- **Proposals only.** The provider proposes document type, table regions, column meanings, a row type for every row, the heading hierarchy and Trade / Sub-trade suggestions. Every answer cites cells with their exact text, explains itself, gives a confidence and lists alternatives when ambiguous.
+- **Column meanings** use both the heading and the content below. When they disagree, the column is Unknown and both readings are offered.
+- **Unknown when unsure.** Document type is Unknown without at least two distinct signals (three for a plain BQ). Hierarchy is left unresolved when no heading is above an item. Sub-trades come only from an item's own words.
+- **Contract extended, not weakened.** New row types: title, column header, description-only item, Provisional Sum, Prime Cost Sum, percentage item, blank, unknown. New column roles: percentage, other, unknown. Answers may have verified alternatives, and table regions list repeated header rows. The verifier also checks Trade / Sub-trade labels against the Cost Library taxonomy.
+- **Approval states:** proposed / verified / approved / rejected. Approving an answer with alternatives needs an explicit choice. Bulk approval covers only straightforward regions, columns and rows (no alternatives, no warnings). High confidence never approves anything.
+- **Taxonomy reference:** `taxonomy.ts` re-exports only `UNIFIED_TRADE_PACKAGES` and `TRADE_SUBTRADES` from the read-only copy, as reference data. No Cost Library function is used.
+- Details: `docs/RULE_BASED_PROVIDER.md`.

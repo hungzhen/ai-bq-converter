@@ -40,7 +40,7 @@ export function describeProviderContract(name: string, makeProvider: () => Inter
     async function everyAnswer(): Promise<Interpretation[]> {
       const regions = await provider.detectTableRegions(ctx);
       const columns = await provider.mapColumns(ctx, regions.map((r) => r.value));
-      const rows = await provider.classifyRows(ctx, columns.map((c) => c.value));
+      const rows = await provider.classifyRows(ctx, columns.map((c) => c.value), regions.map((r) => r.value));
       return [
         ...(await provider.classifyDocument(ctx)),
         ...regions,
@@ -82,9 +82,18 @@ export function describeProviderContract(name: string, makeProvider: () => Inter
       }
     });
 
+    it('quotes the exact text of every cited cell', async () => {
+      for (const a of await everyAnswer()) {
+        if (a.evidence.some((e) => e.columnIndex !== undefined)) {
+          expect(a.quotedText, `${a.decisionKind} cites cells without quoting them`).toBeDefined();
+          expect(a.quotedText!.length).toBe(a.evidence.length);
+        }
+      }
+    });
+
     it('never supplies a figure, unit or description', async () => {
       for (const a of await everyAnswer()) {
-        const keys = allKeys(a.value);
+        const keys = allKeys([a.value, ...(a.alternatives ?? []).map((x) => x.value)]);
         for (const k of FIGURE_KEYS) expect(keys.has(k), `${a.decisionKind} contains "${k}"`).toBe(false);
       }
     });

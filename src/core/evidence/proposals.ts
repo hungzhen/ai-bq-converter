@@ -1,18 +1,29 @@
 /**
  * PROPOSALS — how a provider's answer can (only) become approved data.
  *
- *   provider answer ──► evidence verifier ──► proposal ("proposed") ──► a PERSON approves or rejects
+ *   provider answer ──► evidence verifier ──► proposal ──► a PERSON approves or rejects
+ *
+ * Review states (see `reviewState`):
+ *   failed_verification   the verifier found a blocking problem — can never be approved
+ *   verified              passed the verifier; awaiting a person's decision (NOT approved)
+ *   approved              a person approved it (who, when, which reading, note)
+ *   rejected              a person rejected it (who, when, note)
  *
  * Rules:
  *   - A proposal is created only together with the verifier's report for that exact answer.
- *   - An answer with a blocking finding can never be approved.
- *   - An answer with warnings can be approved only with a note that acknowledges them.
- *   - Passing the verifier is NOT approval. Nothing is approved automatically.
+ *   - Passing the verifier is NOT approval, and neither is high confidence. Nothing is approved
+ *     automatically.
+ *   - An answer with warnings can be approved only with a note acknowledging them.
+ *   - An answer with alternative readings can be approved only by explicitly choosing one.
+ *   - Bulk approval (a person's explicit action) only covers straightforward answers: verified,
+ *     no warnings, no alternatives, and of a kind listed in BULK_APPROVABLE_KINDS. Everything
+ *     else stays for individual review.
  *   - Records are frozen; approving or rejecting returns a new record.
  */
 import { frozenCopy } from '../../lib/immutable.ts';
 import type { DecisionKind, DecisionTypes, Interpretation } from '../../providers/types.ts';
 import { type VerificationReport, blockingFindings, stableKey, warningFindings } from './findings.ts';
+import { type InterpretationContext, verifyInterpretation } from './verifyInterpretation.ts';
 
 export interface ProposalDecision {
   readonly by: string;
@@ -20,17 +31,27 @@ export interface ProposalDecision {
   readonly note?: string;
 }
 
+/** Which reading a person approved: the main answer, or alternative number n (0-based). */
+export type ProposalChoice = 'primary' | number;
+
 export interface Proposal<K extends DecisionKind = DecisionKind> {
   readonly id: string;
   readonly interpretation: Interpretation<K>;
   readonly verification: VerificationReport;
   readonly status: 'proposed' | 'approved' | 'rejected';
   readonly decision?: ProposalDecision;
+  /** Set on approval. */
+  readonly chosen?: ProposalChoice;
 }
+
+export type ReviewState = 'failed_verification' | 'verified' | 'approved' | 'rejected';
 
 export class ProposalError extends Error {
   override name = 'ProposalError';
 }
+
+/** Decision kinds that may be approved in bulk, when straightforward. */
+export const BULK_APPROVABLE_KINDS: readonly DecisionKind[] = ['tableRegion', 'columnRole', 'rowClass'];
 
 export function createProposal<K extends DecisionKind>(id: string, interpretation: Interpretation<K>, verification: VerificationReport): Proposal<K> {
   if (verification.subjectKey !== stableKey(interpretation)) {
@@ -40,8 +61,24 @@ export function createProposal<K extends DecisionKind>(id: string, interpretatio
   return frozenCopy<Proposal<K>>({ id, interpretation, verification, status: 'proposed' });
 }
 
-/** A person approves. Refused for blocking findings; warnings need an acknowledging note. */
-export function approveProposal<K extends DecisionKind>(proposal: Proposal<K>, decision: ProposalDecision): Proposal<K> {
+/** Verifies each answer and wraps it as a proposal. Nothing is approved. */
+export function createVerifiedProposals<K extends DecisionKind>(idPrefix: string, interpretations: readonly Interpretation<K>[], ctx: InterpretationContext): Proposal<K>[] {
+  return interpretations.map((interpretation, n) => createProposal(`${idPrefix}-${n + 1}`, interpretation, verifyInterpretation(interpretation, ctx)));
+}
+
+export function reviewState(p: Proposal): ReviewState {
+  if (p.status === 'approved') return 'approved';
+  if (p.status === 'rejected') return 'rejected';
+  return p.verification.ok ? 'verified' : 'failed_verification';
+}
+
+const hasAlternatives = (p: Proposal) => (p.interpretation.alternatives?.length ?? 0) > 0;
+
+/**
+ * A person approves. Refused for blocking findings; warnings need an acknowledging note; an
+ * answer with alternatives needs an explicit choice ('primary' or the alternative's number).
+ */
+export function approveProposal<K extends DecisionKind>(proposal: Proposal<K>, decision: ProposalDecision, choice?: ProposalChoice): Proposal<K> {
   if (proposal.status !== 'proposed') throw new ProposalError(`Proposal "${proposal.id}" was already ${proposal.status}.`);
   if (!decision.by.trim()) throw new ProposalError('Approval must name the person approving.');
   if (proposal.verification.subjectKey !== stableKey(proposal.interpretation)) {
@@ -54,7 +91,15 @@ export function approveProposal<K extends DecisionKind>(proposal: Proposal<K>, d
   if (warningFindings(proposal.verification).length > 0 && !decision.note?.trim()) {
     throw new ProposalError(`Proposal "${proposal.id}" has warnings; approving it needs a note acknowledging them.`);
   }
-  return frozenCopy<Proposal<K>>({ ...proposal, status: 'approved', decision });
+  const alternatives = proposal.interpretation.alternatives ?? [];
+  if (alternatives.length > 0 && choice === undefined) {
+    throw new ProposalError(`Proposal "${proposal.id}" has ${alternatives.length} alternative reading(s); choose 'primary' or an alternative.`);
+  }
+  const chosen: ProposalChoice = choice ?? 'primary';
+  if (chosen !== 'primary' && (!Number.isInteger(chosen) || chosen < 0 || chosen >= alternatives.length)) {
+    throw new ProposalError(`Proposal "${proposal.id}" has no alternative number ${String(chosen)}.`);
+  }
+  return frozenCopy<Proposal<K>>({ ...proposal, status: 'approved', decision, chosen });
 }
 
 export function rejectProposal<K extends DecisionKind>(proposal: Proposal<K>, decision: ProposalDecision): Proposal<K> {
@@ -63,7 +108,38 @@ export function rejectProposal<K extends DecisionKind>(proposal: Proposal<K>, de
   return frozenCopy<Proposal<K>>({ ...proposal, status: 'rejected', decision });
 }
 
-/** The decisions a person has approved — the only ones later stages may use. */
+/** Why a proposal is not eligible for bulk approval (null = eligible). */
+export function bulkIneligibility(p: Proposal): string | null {
+  if (p.status !== 'proposed') return `already ${p.status}`;
+  if (!p.verification.ok) return 'failed verification';
+  if (!BULK_APPROVABLE_KINDS.includes(p.interpretation.decisionKind)) return `"${p.interpretation.decisionKind}" decisions are reviewed individually`;
+  if (hasAlternatives(p)) return 'has alternative readings';
+  if (warningFindings(p.verification).length > 0) return 'has warnings';
+  return null;
+}
+
+/**
+ * A person approves many straightforward proposals at once. Anything ambiguous, questionable or
+ * of another kind is skipped (with the reason) and stays for individual review.
+ */
+export function bulkApprove<K extends DecisionKind>(
+  proposals: readonly Proposal<K>[],
+  decision: ProposalDecision,
+): { approved: Proposal<K>[]; skipped: { proposal: Proposal<K>; reason: string }[] } {
+  if (!decision.by.trim()) throw new ProposalError('Bulk approval must name the person approving.');
+  const approved: Proposal<K>[] = [];
+  const skipped: { proposal: Proposal<K>; reason: string }[] = [];
+  for (const p of proposals) {
+    const reason = bulkIneligibility(p);
+    if (reason) skipped.push({ proposal: p, reason });
+    else approved.push(approveProposal(p, { ...decision, note: decision.note ?? 'Bulk approval of straightforward proposals.' }, 'primary'));
+  }
+  return { approved, skipped };
+}
+
+/** The decisions a person has approved (the chosen reading) — the only ones later stages may use. */
 export function approvedDecisions<K extends DecisionKind>(proposals: readonly Proposal<K>[]): DecisionTypes[K][] {
-  return proposals.filter((p) => p.status === 'approved').map((p) => p.interpretation.value);
+  return proposals
+    .filter((p) => p.status === 'approved')
+    .map((p) => (p.chosen === undefined || p.chosen === 'primary' ? p.interpretation.value : p.interpretation.alternatives![p.chosen]!.value));
 }

@@ -87,7 +87,10 @@ export interface DocumentTypeDecision {
 
 export interface TableRegionDecision {
   readonly tableId: string;
+  /** The column-heading row(s) at the top of the table (one or two rows). */
   readonly headerRowIndexes: readonly number[];
+  /** The same headings repeated further down (e.g. at the top of each printed page). */
+  readonly repeatedHeaderRowIndexes: readonly number[];
   readonly firstDataRowIndex: number;
   readonly lastDataRowIndex: number;
   /** false = skip this table (e.g. a cover or summary sheet). */
@@ -104,6 +107,9 @@ export type ColumnRole =
   | 'claimPreviousQuantity' | 'claimCurrentQuantity' | 'claimCumulativeQuantity'
   | 'claimPreviousAmount' | 'claimCurrentAmount' | 'claimCumulativeAmount'
   | 'claimPercentComplete' | 'certifiedAmount'
+  | 'percentage' // a percentage column whose purpose is not otherwise determined
+  | 'other' // understood, but has no FullBQItem field (e.g. a labour / material split)
+  | 'unknown' // cannot be determined — needs a person
   | 'ignore';
 
 export const COLUMN_ROLES: readonly ColumnRole[] = [
@@ -113,7 +119,7 @@ export const COLUMN_ROLES: readonly ColumnRole[] = [
   'trade', 'costItem', 'remarks', 'additionalQuantity', 'additionalAmount',
   'claimPreviousQuantity', 'claimCurrentQuantity', 'claimCumulativeQuantity',
   'claimPreviousAmount', 'claimCurrentAmount', 'claimCumulativeAmount',
-  'claimPercentComplete', 'certifiedAmount', 'ignore',
+  'claimPercentComplete', 'certifiedAmount', 'percentage', 'other', 'unknown', 'ignore',
 ];
 
 export interface ColumnRoleDecision {
@@ -182,6 +188,13 @@ export const DECISION_KINDS: readonly DecisionKind[] = [
 // Interpretation — a decision with its evidence
 // ---------------------------------------------------------------------------------------------
 
+/** Another possible reading of the same cells, offered when the evidence is ambiguous. */
+export interface AlternativeInterpretation<K extends DecisionKind = DecisionKind> {
+  readonly value: DecisionTypes[K];
+  readonly confidence: number;
+  readonly reasoning: string;
+}
+
 export interface Interpretation<K extends DecisionKind = DecisionKind> {
   readonly decisionKind: K;
   readonly value: DecisionTypes[K];
@@ -196,6 +209,12 @@ export interface Interpretation<K extends DecisionKind = DecisionKind> {
   readonly quotedText?: readonly string[];
   /** Plain-English reason, shown to the reviewer. */
   readonly reasoning: string;
+  /**
+   * Other possible readings of the same cited cells (ambiguous evidence). Each one is verified
+   * like the main answer. A proposal with alternatives can only be approved by a person who
+   * explicitly chooses one of the readings — never in bulk.
+   */
+  readonly alternatives?: readonly AlternativeInterpretation<K>[];
   readonly method: ProviderKind;
   /** "id@version" of the provider. */
   readonly providerId: string;
@@ -237,7 +256,8 @@ export interface InterpretationProvider {
   classifyDocument(ctx: DocumentContext): Promise<readonly Interpretation<'documentType'>[]>;
   detectTableRegions(ctx: DocumentContext): Promise<readonly Interpretation<'tableRegion'>[]>;
   mapColumns(ctx: DocumentContext, regions: readonly TableRegionDecision[]): Promise<readonly Interpretation<'columnRole'>[]>;
-  classifyRows(ctx: DocumentContext, columns: readonly ColumnRoleDecision[]): Promise<readonly Interpretation<'rowClass'>[]>;
+  /** `regions`: the table regions to use (e.g. as corrected by a person); when omitted the provider finds them itself. */
+  classifyRows(ctx: DocumentContext, columns: readonly ColumnRoleDecision[], regions?: readonly TableRegionDecision[]): Promise<readonly Interpretation<'rowClass'>[]>;
   interpretHierarchy(ctx: DocumentContext, rows: readonly RowClassDecision[]): Promise<readonly Interpretation<'hierarchy'>[]>;
   suggestClassifications(ctx: DocumentContext, rows: readonly RowClassDecision[]): Promise<readonly Interpretation<'classificationSuggestion'>[]>;
   relateDocuments(ctx: ProjectContext): Promise<readonly Interpretation<'relationship'>[]>;
