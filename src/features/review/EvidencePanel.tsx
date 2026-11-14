@@ -24,6 +24,7 @@ import {
 } from '../../core/evidence/index.ts';
 import { type ExtractedTable, SOURCE_DOCUMENT_TYPES } from '../../core/models/index.ts';
 import { COLUMN_ROLES, RULE_BASED_LABEL, AI_LABEL } from '../../providers/types.ts';
+import type { HistoryEvent } from '../../core/review/index.ts';
 import { COLUMN_ROLE_LABEL, DOCUMENT_TYPE_LABEL, KIND_LABEL, ROW_CLASS_LABEL, cellLabel, describeValue, percent } from './labels.ts';
 import { StateChip } from './ProposalList.tsx';
 
@@ -33,6 +34,10 @@ export interface EvidencePanelProps {
   readonly reviewer: string | null;
   readonly verificationContext: InterpretationContext;
   readonly onDecision: (updated: Proposal) => void;
+  /** This proposal's history (created, approved, rejected, reopened …), oldest first. */
+  readonly history?: readonly HistoryEvent[];
+  /** Reopen a decided proposal so it can be decided again (the earlier decision stays in the history). */
+  readonly onReopen?: () => void;
   readonly onCitationClick: (tableId: string, rowIndex: number, columnIndex?: number) => void;
 }
 
@@ -66,7 +71,7 @@ function correctedValue(p: Proposal, chosen: string): unknown {
   }
 }
 
-export function EvidencePanel({ proposal: p, tables, reviewer, verificationContext, onDecision, onCitationClick }: EvidencePanelProps) {
+export function EvidencePanel({ proposal: p, tables, reviewer, verificationContext, onDecision, onCitationClick, history = [], onReopen }: EvidencePanelProps) {
   const [note, setNote] = useState('');
   const [correction, setCorrection] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +190,26 @@ export function EvidencePanel({ proposal: p, tables, reviewer, verificationConte
           {p.status === 'approved' && p.chosen !== undefined && (p.chosen === 'primary' ? ' — the proposed reading' : ` — alternative ${(p.chosen as number) + 1}: ${describeValue(i.decisionKind, alternatives[p.chosen as number]!.value, tables)}`)}
           {p.correction && <div>Correction: {describeValue(i.decisionKind, p.correction.value, tables)}</div>}
           {p.decision.note && <div>Note: {p.decision.note}</div>}
+          {onReopen && (
+            <button type="button" onClick={onReopen} className="mt-1 rounded border border-slate-500 px-2 py-0.5">
+              Change this decision (reopen — the earlier decision stays in the history)
+            </button>
+          )}
         </div>
+      )}
+
+      {history.length > 0 && (
+        <details className="text-xs" data-testid="proposal-history">
+          <summary className="cursor-pointer text-slate-600">History ({history.length})</summary>
+          <ol className="mt-1 space-y-0.5">
+            {history.map((e) => (
+              <li key={e.sequence}>
+                {e.at.replace('T', ' ').slice(0, 19)} · <strong>{e.action.replace(/_/g, ' ')}</strong> · {e.by ?? 'not recorded'} — {e.summary}
+                {e.note ? ` Note: ${e.note}` : ''}
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
 
       {open && (

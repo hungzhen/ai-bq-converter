@@ -149,6 +149,20 @@ export function correctProposal<K extends DecisionKind>(
   return frozenCopy<Proposal<K>>({ ...proposal, status: 'rejected', decision, correction: { value, verification } });
 }
 
+/**
+ * A person reopens a decided proposal so it can be decided again. The proposal itself returns to
+ * "proposed"; the earlier decision must be kept in the review history (src/core/review) — it is
+ * never silently overwritten.
+ */
+export function reopenProposal<K extends DecisionKind>(proposal: Proposal<K>): Proposal<K> {
+  if (proposal.status === 'proposed') throw new ProposalError(`Proposal "${proposal.id}" has not been decided yet.`);
+  const { decision: _d, chosen: _c, correction: _x, ...rest } = proposal;
+  void _d;
+  void _c;
+  void _x;
+  return frozenCopy<Proposal<K>>({ ...rest, status: 'proposed' });
+}
+
 /** Approved readings and recorded corrections — what a person has decided, with where it came from. */
 export function decidedValues<K extends DecisionKind>(proposals: readonly Proposal<K>[]): { proposalId: string; value: DecisionTypes[K]; source: 'approved' | 'correction' }[] {
   const out: { proposalId: string; value: DecisionTypes[K]; source: 'approved' | 'correction' }[] = [];

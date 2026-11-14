@@ -77,7 +77,16 @@ export type PipelineResult = PipelineSuccess | PipelineFailure;
 
 const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `doc-${Date.now()}`);
 
-export async function runPipeline(input: PipelineInput, provider: InterpretationProvider, options: ExtractionOptions = {}): Promise<PipelineResult> {
+/**
+ * mode "extract_only" runs stages 1–4 only (used when reopening a saved review: the saved
+ * proposals are used, not new ones); stages 5–7 are then reported as not run.
+ */
+export async function runPipeline(
+  input: PipelineInput,
+  provider: InterpretationProvider,
+  options: ExtractionOptions = {},
+  mode: 'full' | 'extract_only' = 'full',
+): Promise<PipelineResult> {
   const stages: StageOutcome[] = [];
   const done = (stage: StageName, message: string) => stages.push({ stage, status: 'done', message });
   const fail = (stage: StageName, message: string, code?: string): PipelineFailure => {
@@ -121,6 +130,13 @@ export async function runPipeline(input: PipelineInput, provider: Interpretation
   const refProblems = checkReferencesBelongToProject(project, refs);
   if (refProblems.length) return fail('source_references', `${refProblems.length} source reference(s) are invalid: ${refProblems[0]}`);
   done('source_references', `${refs.length.toLocaleString('en')} source references checked.`);
+
+  if (mode === 'extract_only') {
+    stages.push({ stage: 'interpretation', status: 'not_run', message: 'Not run: the saved review\'s own proposals are used.' });
+    stages.push({ stage: 'verification', status: 'not_run', message: 'Not run as new proposals: every saved proposal is re-verified against this file before it is restored.' });
+    stages.push({ stage: 'proposals', status: 'not_run', message: 'Not run: the saved proposals and decisions are restored.' });
+    return { ok: true, stages, project, extraction, proposals: [], verification: { passed: 0, failed: 0 } };
+  }
 
   // 5. Interpretation (proposals only)
   const ctx = { project, document: extraction.document, tables: extraction.tables };

@@ -119,5 +119,13 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
   - leave unresolved
 - **Bulk approval:** Stage 2G restrictions, with a confirmation step.
 - **Identity:** the reviewer's name is recorded when typed; otherwise "not recorded". There is no account system.
-- **No saving yet.** Review decisions are kept in memory only, for this session.
+- **No saving yet.** Review decisions are kept in memory only, for this session. (Superseded by D-017.)
 - Details: `docs/USER_INTERFACE.md`.
+
+## D-017 — Review persistence and recovery (Stage 2I)
+- **The review is saved, not the document.** A saved review holds the document's identity (name, size, SHA-256 fingerprint, worksheets), the original proposals with their evidence and verification, the decisions, notes, chosen alternatives, corrections, the reviewer name and the extraction settings. It does not hold the file's contents.
+- **Browser only.** Saved in this browser's IndexedDB (memory only if IndexedDB is unavailable). Nothing is sent anywhere. Clearing browser data deletes saved reviews, so backups are encouraged.
+- **Reopen needs the same file.** The fingerprint must match; the file name never decides. On a match the file is re-extracted with the saved settings and every saved proposal is re-verified. If anything no longer fits, nothing is restored. On a mismatch, the old review is kept and the user may start a new, separate review.
+- **History is append-only.** Every creation, approval, rejection, correction, chosen alternative, acknowledged warning, reopening, restore and import is recorded with time, name (or "not recorded") and note. Changing a decision means reopening it; the earlier decision stays.
+- **Backups.** JSON file (`*.review-backup.json`) labelled "NOT a Cost Library upload workbook", with a SHA-256 checksum. Import refuses empty, spreadsheet, non-JSON, other, wrong-version, incomplete, altered or damaged files. An import whose review id already exists is added as a copy; nothing is overwritten.
+- Details: `docs/REVIEW_PERSISTENCE.md`.

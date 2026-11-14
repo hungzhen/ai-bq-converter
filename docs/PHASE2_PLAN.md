@@ -62,7 +62,7 @@ ai-bq-converter/                      ✅ separate project — never inside the 
 │   │   ├── rule-based/               ✅ first rules: document type, regions, columns, rows, hierarchy, trades (Stage 2G; see docs/RULE_BASED_PROVIDER.md)
 │   │   └── claude/README.md          ✅ design notes only — no code, no key
 │   ├── rules/                        ✅ editable JSON rule files + checking schemas
-│   ├── storage/                      ✅ StorageAdapter interface + in-memory adapter
+│   ├── storage/                      ✅ StorageAdapter interface + in-memory adapter; saved-review store in IndexedDB (Stage 2I)
 │   ├── features/                     ✅ upload screen and review workspace (Stage 2H; see docs/USER_INTERFACE.md)
 │   └── components/ui/                ✅ basic table, badge (e.g. "Conventional rule-based processing")
 └── tests/
@@ -90,7 +90,7 @@ The core versions match your Cost Library (React 19, Vite 8, TypeScript 7, Tailw
 | Spreadsheet reading (XLSX, **XLS**, CSV) | **SheetJS** | 2 | Only mainstream library that reads old `.xls`. See §5, decision A |
 | CSV edge cases | PapaParse | 2 | Delimiter and text-encoding detection |
 | Data checking | zod | 2 | Checks rule files now and future AI responses later |
-| Local storage | In-memory now; IndexedDB (`idb`) | 2 / 3 | Nothing leaves your PC |
+| Local storage | Browser IndexedDB (built-in API, no extra package) for saved reviews since Stage 2I | 2 / 3 | Nothing leaves your PC |
 | Excel export | ExcelJS | 4 | Styled upload and reconciliation workbooks |
 | Digital PDF | pdfjs-dist (Mozilla PDF.js) | 6 | Text with positions |
 | Scanned PDF OCR | tesseract.js | 7 | Runs in the browser |
@@ -131,6 +131,7 @@ Each stage is small, ends with passing tests, and is shown to you before the nex
 | **2F Spreadsheet extraction** | File type detection from bytes (XLSX, XLS, CSV, PDF recognised); XLSX/XLS/CSV → `ExtractedTable` keeping sheet name, row number, cell address, merged cells, hidden rows/columns, formulas and stored results | Built on synthetic workbooks generated in the test code: every cell's reference is correct; hidden rows flagged; formula without stored result flagged (not calculated); CSV with different delimiters |
 | **2G RuleBasedProvider (first rules)** | Rule JSON files; document type (BQ / working file / claim / unknown), header row and data range, column meanings (using the Cost Library's `ColumnMappingConfig` field names), row classes (heading, item, note, subtotal, total, carried forward…) | Synthetic BQ, working-file and claim layouts classified correctly; every answer carries evidence and passes the verifier; labelled "Conventional rule-based processing" |
 | **2H Pipeline & first screen** | Orchestrator skeleton, in-memory storage adapter, one screen: choose a file → see the extracted table with row/cell references → see the proposed column mapping and row classes with their reasons | End-to-end test: synthetic file → proposals; screen test: proposals and labels shown |
+| **2I Review persistence & recovery** | Saved reviews in the browser (IndexedDB) with an append-only decision history; reopen only against the same file (SHA-256 fingerprint) with every proposal re-verified; review backup export/import (JSON with checksum) | Reload/restore, same-name-different-content refusal, history, backup round trip and invalid-backup tests |
 
 **At the end of Phase 2** you can open the app, load a spreadsheet and see what the converter *proposes*, with exactly which cells each proposal is based on.
 

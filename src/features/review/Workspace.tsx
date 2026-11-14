@@ -5,11 +5,12 @@
  * decision panel. Above: the pipeline stages, a count of review states (so unresolved items stay
  * visible), the extraction issues, and the restricted bulk approval.
  *
- * Decisions are kept in this screen's memory as separate review records. The extracted source is
- * never changed. Nothing is saved yet: closing or reloading the page discards the review.
+ * Every decision is recorded in the saved review (with history) and saved in this browser straight
+ * away. The extracted source is never changed.
  */
 import { useMemo, useState } from 'react';
-import { type Proposal, bulkApprove, bulkIneligibility, reviewState } from '../../core/evidence/index.ts';
+import { type Proposal, bulkApprove, bulkIneligibility, reopenProposal, reviewState } from '../../core/evidence/index.ts';
+import { type SavedReview, historyOf, recordChanges } from '../../core/review/index.ts';
 import type { PipelineSuccess } from '../../core/pipeline/runPipeline.ts';
 import { STAGES } from '../../core/pipeline/runPipeline.ts';
 import type { BqRowClass, ExtractedTable } from '../../core/models/index.ts';
@@ -21,6 +22,13 @@ import { STATE_LABEL, tableName } from './labels.ts';
 
 export interface WorkspaceProps {
   readonly result: PipelineSuccess;
+  /** The saved review being worked on (its proposals are the ones shown). */
+  readonly review: SavedReview;
+  /** Called with the updated review after every decision; the caller saves it. */
+  readonly onReviewChange: (review: SavedReview) => void;
+  /** e.g. "Saved in this browser at 10:42:05", or a storage problem. */
+  readonly saveStatus: { readonly ok: boolean; readonly message: string };
+  readonly onExport: () => void;
   readonly reviewer: string | null;
   readonly provider: ProviderInfo;
   readonly onStartAgain: () => void;
@@ -30,10 +38,10 @@ function firstTableWithContent(tables: readonly ExtractedTable[]): string {
   return (tables.find((t) => t.rows.length > 0) ?? tables[0])?.id ?? '';
 }
 
-export function Workspace({ result, reviewer, provider, onStartAgain }: WorkspaceProps) {
+export function Workspace({ result, review, onReviewChange, saveStatus, onExport, reviewer, provider, onStartAgain }: WorkspaceProps) {
   const { extraction, project } = result;
   const tables = extraction.tables;
-  const [proposals, setProposals] = useState<readonly Proposal[]>(result.proposals);
+  const proposals = review.proposals;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTableId, setActiveTableId] = useState(firstTableWithContent(tables));
   const [highlighted, setHighlighted] = useState<ReadonlySet<string>>(new Set());
@@ -78,12 +86,18 @@ export function Workspace({ result, reviewer, provider, onStartAgain }: Workspac
     if (p) showCells(p.interpretation.evidence);
   };
 
-  const decide = (updated: Proposal) => setProposals((list) => list.map((p) => (p.id === updated.id ? updated : p)));
+  const now = () => new Date().toISOString();
+  const decide = (updated: Proposal) => {
+    const before = proposals.find((p) => p.id === updated.id)!;
+    onReviewChange(recordChanges(review, [{ before, after: updated }], now(), reviewer));
+  };
+  const reopen = (p: Proposal) => onReviewChange(recordChanges(review, [{ before: p, after: reopenProposal(p) }], now(), reviewer));
 
   const runBulk = () => {
-    const { approved, skipped } = bulkApprove(proposals, { by: reviewer, at: new Date().toISOString(), note: 'Bulk approval of straightforward proposals.' });
-    const byId = new Map(approved.map((p) => [p.id, p]));
-    setProposals((list) => list.map((p) => byId.get(p.id) ?? p));
+    const at = now();
+    const { approved, skipped } = bulkApprove(proposals, { by: reviewer, at, note: 'Bulk approval of straightforward proposals.' });
+    const before = new Map(proposals.map((p) => [p.id, p]));
+    onReviewChange(recordChanges(review, approved.map((after) => ({ before: before.get(after.id)!, after })), at, reviewer));
     setBulkStep('idle');
     setBulkMessage(`Approved ${approved.length} straightforward proposal(s). ${skipped.filter((s) => s.proposal.status === 'proposed').length} other(s) stay for individual review.`);
   };
@@ -105,15 +119,26 @@ export function Workspace({ result, reviewer, provider, onStartAgain }: Workspac
         <div>
           <strong className="text-sm">{extraction.document.fileName}</strong> · {extraction.format.toUpperCase()} · {tables.length} worksheet(s){extraction.csv ? ` · CSV ${extraction.csv.encoding}, ${JSON.stringify(extraction.csv.delimiter)} delimiter` : ''} · fingerprint {extraction.document.sha256.slice(0, 12)}…
         </div>
-        <button type="button" onClick={onStartAgain} className="rounded border px-2 py-1">
-          Choose another file (discards this review)
-        </button>
+        <span className="flex items-center gap-2">
+          <span data-testid="save-status" className={saveStatus.ok ? 'text-green-800' : 'font-medium text-red-800'}>{saveStatus.message}</span>
+          <button type="button" onClick={onExport} className="rounded border px-2 py-1">
+            Export review backup
+          </button>
+          <button type="button" onClick={onStartAgain} className="rounded border px-2 py-1">
+            Back to start (this review stays saved)
+          </button>
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs" data-testid="pipeline-stages">
         {result.stages.map((s) => (
-          <span key={s.stage} title={s.message} className={`rounded px-2 py-0.5 ${s.status === 'done' ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
-            {s.status === 'done' ? '✓' : '✗'} {STAGES.find((x) => x.name === s.stage)?.label}
+          <span
+            key={s.stage}
+            title={s.message}
+            className={`rounded px-2 py-0.5 ${s.status === 'done' ? 'bg-green-50 text-green-900' : s.status === 'failed' ? 'bg-red-50 text-red-900' : 'bg-slate-100 text-slate-700'}`}
+          >
+            {s.status === 'done' ? '✓' : s.status === 'failed' ? '✗' : '↺'} {STAGES.find((x) => x.name === s.stage)?.label}
+            {s.status === 'not_run' ? ' (restored)' : ''}
           </span>
         ))}
         <span className="rounded bg-sky-50 px-2 py-0.5 text-sky-900">8. Your review</span>
@@ -189,6 +214,8 @@ export function Workspace({ result, reviewer, provider, onStartAgain }: Workspac
                 tables={tables}
                 reviewer={reviewer}
                 verificationContext={verificationContext}
+                history={historyOf(review, selected.id)}
+                onReopen={() => reopen(selected)}
                 onDecision={decide}
                 onCitationClick={(tableId, rowIndex, columnIndex) => showCells([{ tableId, rowIndex, ...(columnIndex !== undefined ? { columnIndex } : {}) }])}
               />

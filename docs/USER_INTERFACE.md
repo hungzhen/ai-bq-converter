@@ -1,4 +1,4 @@
-# First Interface (Stage 2H)
+# User Interface (Stages 2H–2I)
 
 A plain-English guide to using the app. Everything runs **in your browser**: the file is not uploaded anywhere, and it is never changed.
 
@@ -68,8 +68,31 @@ The cited cells are highlighted in yellow.
 
 Passing verification is not approval. Nothing is approved unless you approve it.
 
-## 5. Not yet
+## 5. Saved reviews (Stage 2I)
 
-- Decisions are kept only while the page is open. Choosing another file, or reloading, discards them. Saving comes later.
+Every decision is **saved automatically in this browser**. The header of the review shows "Saved in this browser at …".
+
+![Autosaved review](screenshots/6-autosaved-review.png)
+
+The start screen lists **Saved reviews in this browser**: document name, fingerprint, reviewer, last saved, progress, and approved / rejected / unresolved counts, with **Reopen**, **Export** and **Delete…** (delete asks for confirmation).
+
+![Saved reviews after reloading the page](screenshots/7-saved-reviews-after-reload.png)
+
+**Reopen** asks you to choose the original file again. The review does not store your document, only the decisions about it. A matching file name is not enough: the file's fingerprint (SHA-256 of its bytes) must match.
+
+![Reopen: choose the original file](screenshots/8-reopen-choose-original.png)
+
+If the fingerprint does not match, nothing is restored. You can choose another file, or review the file you chose as a new, separate review. The saved review is kept unchanged.
+
+![Different file: nothing restored](screenshots/9-fingerprint-mismatch.png)
+
+When it matches, every saved proposal is checked again against the file before it is shown. Stages that were not re-run are marked "↺ (restored)". Each proposal shows its **History**. **Change this decision** reopens it; the earlier decision stays in the history.
+
+![Restored review with history](screenshots/10-restored-review-with-history.png)
+
+**Backups.** "Export review backup" downloads a `.review-backup.json` file. "Import review backup…" loads one back. Details: [`REVIEW_PERSISTENCE.md`](REVIEW_PERSISTENCE.md).
+
+## 6. Not yet
+
 - There is no export to the Cost Library yet.
 - PDF and OCR are later phases.
