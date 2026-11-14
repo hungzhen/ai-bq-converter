@@ -135,3 +135,27 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **Duplicate imports.** A backup is recognised by its review id and by its content fingerprint (the backup checksum, recorded in the "imported" history entry). If it matches a saved review, the import stops with a warning. The user may cancel, or deliberately import it as a separate copy with a new id.
   - New reviews are stored with an atomic IndexedDB `add`, so simultaneous imports can never overwrite an existing review or each other.
 - Details: `docs/REVIEW_PERSISTENCE.md`.
+
+## D-018 — Draft rows from approved decisions (Stage 2J)
+- **Draft rows only.** Draft Cost Library rows (`StagedBQRow` wrapping `FullBQItem`) are built from **approved** decisions (or recorded corrections). Nothing is exported or uploaded. Drafts are not stored; they are rebuilt from the saved decisions, so they can never drift from them.
+- **Values copied, never calculated.** Each figure and text comes from its own cell, read by the Stage 2D parsers (D-011, D-012 unchanged). No quantity × rate, extension, total or missing figure is ever worked out. Totals stated in the document are listed for information only.
+- **Decision 1, placeholders:** a required quantity, rate or amount the document does not give is held as 0 **only as an internal placeholder**. Its evidence states what was found, it is listed as a placeholder, and it raises a **blocking** issue. A "0" written in the document has state "zero" and no placeholder. The two are shown differently everywhere. (This makes `REQUIRED_FIELD_NOT_IN_SOURCE` blocking for quantity, rate and amount, a change to the Stage 2C model.)
+- **Decision 2, lump sums:** the quantity stays "not stated". Quantity 1 is never assumed, and the rate is not worked out from the amount.
+- **Decision 3, project details:** the project name and year are typed in by a person and never inferred (for example, from the file name). Drafts appear before they are entered, with **blocking** issues.
+  - Project details are saved in the review, with a "project details changed" history entry.
+  - The project reference and location are optional.
+- **Decision 4, units:** units are kept exactly as written. The Cost Library's spelling (its own `normalizeUnit`, re-exported read-only in `src/vendor/cost-library/units.ts`) is shown beside the unit and never applied.
+- **Decision 5, unclassified rows:** rows whose type is unknown, rejected without a correction, or never proposed are not drafted. They are listed in the reconciliation information, and their type is never guessed.
+- **Decision 6, tables:** every table is checked on its own: its table area, columns, row types and heading levels must be decided. A blocked table never stops a ready table.
+  - The document type is decided once for the whole document.
+  - A progress claim or a summary-only document is never converted.
+- **Continuation rows:** joined to their item (as decided by the approved heading levels) with one space. Every contributing cell is kept and checked again (`verifyDrafts`). Values on a continuation row outside the description are not used, and raise a blocking issue.
+- **Every source row is accounted for:** each row is drafted, joined, heading, note, total, header, title or reference, blank, ignored, unclassified, outside the table area, undecided, item in a blocked table, or table not converted.
+- **Not yet supported (a table that uses them is blocked, not guessed):**
+  - additional quantity or amount columns
+  - percentage columns of undetermined purpose
+  - Element, Trade and Cost Item columns
+  - claim columns, which are never mixed into BQ rows
+- **Backward compatibility:** reviews and backups saved by Stage 2I need no conversion and still load, import and reopen. Their project details read as "not entered". The review format version stays 1.
+- Details: `docs/DRAFT_ROWS.md`.
+

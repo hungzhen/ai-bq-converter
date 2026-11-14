@@ -1,4 +1,4 @@
-# User Interface (Stages 2H–2I)
+# User Interface (Stages 2H–2J)
 
 A plain-English guide to using the app. Everything runs **in your browser**: the file is not uploaded anywhere, and it is never changed.
 
@@ -100,7 +100,17 @@ When it matches, every saved proposal is checked again against the file before i
 
 Reviewer names are typed in and are not verified identities. The history is not tamper-proof. Details: [`REVIEW_PERSISTENCE.md`](REVIEW_PERSISTENCE.md).
 
-## 6. Not yet
+## 6. Draft rows (Stage 2J)
+
+The **Draft rows** tab (next to "Review proposals") shows the draft Cost Library rows built from your approved decisions. Nothing is exported. Details: [`DRAFT_ROWS.md`](DRAFT_ROWS.md).
+
+![Draft rows before the project details are entered](screenshots/14-draft-rows-project-missing.png)
+
+![Ready table: stated zero, placeholders, units, lump sum, negative](screenshots/16-draft-rows-zero-placeholder-detail.png)
+
+![One table blocked, the other ready](screenshots/18-blocked-and-ready-tables.png)
+
+## 7. Not yet
 
 - There is no export to the Cost Library yet.
 - PDF and OCR are later phases.

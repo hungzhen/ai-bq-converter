@@ -108,7 +108,7 @@ describe('missing required values are never silently filled', () => {
     expect(row.placeholders).toEqual([{ field: 'quantity', placeholder: 0, reason: 'blank' }]); // …so it is recorded
     expect(row.evidence.quantity.state).toBe('blank');
     expect(row.evidence.quantity.parsed).toBeNull();
-    expect(row.issues.map((i) => [i.code, i.severity, i.field])).toEqual([['REQUIRED_FIELD_NOT_IN_SOURCE', 'warning', 'quantity']]);
+    expect(row.issues.map((i) => [i.code, i.severity, i.field])).toEqual([['REQUIRED_FIELD_NOT_IN_SOURCE', 'blocking', 'quantity']]); // Stage 2J decision 1
   });
 
   it('a quantity of ZERO shown in the document is a real value — no placeholder, no issue', () => {
@@ -147,13 +147,13 @@ describe('missing required values are never silently filled', () => {
     expect(row.issues.map((i) => i.code)).toContain('SPECIAL_VALUE');
   });
 
-  it('a heading row without figures gets the same placeholders, reported as information only', () => {
+  it('a heading row without figures gets the same placeholders; missing figures are blocking (Stage 2J decision 1)', () => {
     const row = makeRow(
       { unit: notStatedEvidence(), quantity: notStatedEvidence(), rate: notStatedEvidence(), amount: notStatedEvidence() },
       { rowClass: 'main_heading' },
     );
     expect(row.placeholders.map((p) => p.field)).toEqual(['unit', 'quantity', 'rate', 'amount']);
-    expect(row.issues.every((i) => i.severity === 'info')).toBe(true);
+    expect(row.issues.map((i) => [i.field, i.severity])).toEqual([['unit', 'info'], ['quantity', 'blocking'], ['rate', 'blocking'], ['amount', 'blocking']]);
     expect(checkStagedRowIntegrity(row)).toEqual([]);
   });
 

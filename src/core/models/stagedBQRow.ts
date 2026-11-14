@@ -12,6 +12,11 @@
  *  2. FullBQItem REQUIRES description, unit, quantity, rate and amount. When the document does
  *     not give one, `item` must still hold something (0 or empty text) — so that placeholder is
  *     RECORDED in `placeholders` and reported as an issue. It is never silent.
+ *     A missing QUANTITY, RATE or AMOUNT is a BLOCKING issue (Stage 2J decision 1): the 0 in the
+ *     item is only an internal placeholder and is never a genuine zero. A genuine zero in the
+ *     document has evidence state "zero" and no placeholder record.
+ *  2a. The project name and year are entered by a person, never inferred. A missing name or year
+ *     is a BLOCKING issue.
  *  3. originalRate / originalAmount are set only from the document's own rate / amount.
  *  4. Negative values keep their sign and raise a BLOCKING issue (D-004).
  *  5. Trade / Cost Item / Element stay blank until a person approves a proposal (D-008).
@@ -97,9 +102,9 @@ export type RowEvidence = RequiredRowEvidence &
 
 /** A required FullBQItem field that holds 0 or '' only because FullBQItem demands a value. */
 export interface PlaceholderRecord {
-  readonly field: RequiredDocumentField | 'projectYear';
+  readonly field: RequiredDocumentField | 'projectYear' | 'projectName';
   readonly placeholder: 0 | '';
-  /** Why there is no real value: the evidence state, or "not_entered" for the project year. */
+  /** Why there is no real value: the evidence state, or "not_entered" for the project name / year. */
   readonly reason: ValueState | 'not_entered';
 }
 
@@ -144,7 +149,7 @@ export interface StagedBQRow {
 
 export interface StagedBQRowInput {
   readonly id: string;
-  readonly project: Pick<ConverterProject, 'id' | 'name' | 'projectYear'>;
+  readonly project: Pick<ConverterProject, 'id' | 'name' | 'projectYear'> & { readonly projectRef?: string; readonly location?: string };
   readonly documentId: string;
   readonly rowClass: BqRowClass;
   readonly sequence: number;
@@ -156,6 +161,8 @@ export interface StagedBQRowInput {
   readonly proposals?: readonly ClassificationProposal[];
   /** Date used for dateCreated / dateUpdated (YYYY-MM-DD). */
   readonly today: string;
+  /** Further issues found by the caller (e.g. values on a continuation row that were not used). */
+  readonly extraIssues?: readonly ValidationIssue[];
 }
 
 export class StagedRowError extends Error {
@@ -217,6 +224,20 @@ export function createStagedBQRow(input: StagedBQRowInput): StagedBQRow {
     return 0;
   };
 
+  let projectName = input.project.name;
+  if (projectName.trim() === '') {
+    placeholders.push({ field: 'projectName', placeholder: '', reason: 'not_entered' });
+    issues.push({
+      id: issueId(input.id, 'PROJECT_NAME_NOT_ENTERED', 'projectName'),
+      code: 'PROJECT_NAME_NOT_ENTERED',
+      severity: 'blocking',
+      message: 'The project name has not been entered. It is never taken from the file name or assumed.',
+      field: 'projectName',
+      sources: [],
+    });
+    projectName = '';
+  }
+
   let projectYear = input.project.projectYear;
   if (projectYear === null) {
     placeholders.push({ field: 'projectYear', placeholder: '', reason: 'not_entered' });
@@ -235,7 +256,9 @@ export function createStagedBQRow(input: StagedBQRowInput): StagedBQRow {
   const item: FullBQItem = {
     id: input.id,
     projectId: input.project.id,
-    projectName: input.project.name,
+    projectName,
+    ...(input.project.projectRef ? { projectRef: input.project.projectRef } : {}),
+    ...(input.project.location ? { location: input.project.location } : {}),
     projectYear,
     description: requiredText('description'),
     unit: requiredText('unit'),
@@ -260,17 +283,21 @@ export function createStagedBQRow(input: StagedBQRowInput): StagedBQRow {
   }
 
   for (const p of placeholders) {
-    if (p.field === 'projectYear') continue;
+    if (p.field === 'projectYear' || p.field === 'projectName') continue;
+    const numeric = p.field === 'quantity' || p.field === 'rate' || p.field === 'amount';
     issues.push({
       id: issueId(input.id, 'REQUIRED_FIELD_NOT_IN_SOURCE', p.field),
       code: 'REQUIRED_FIELD_NOT_IN_SOURCE',
-      severity: input.rowClass === 'priced_item' ? 'warning' : 'info',
-      message: `${p.field} is required by FullBQItem but the document gives none (${p.reason}); "${String(p.placeholder)}" is only a placeholder.`,
+      severity: numeric ? 'blocking' : input.rowClass === 'priced_item' ? 'warning' : 'info',
+      message: numeric
+        ? `${p.field} is required by FullBQItem but the document gives no figure (${p.reason}). The 0 held in the item is ONLY an internal placeholder — not a zero from the document.`
+        : `${p.field} is required by FullBQItem but the document gives none (${p.reason}); "${String(p.placeholder)}" is only a placeholder.`,
       field: p.field,
       sources: ev[p.field].sources,
     });
   }
   for (const [field, e] of allEvidence) issues.push(...evidenceIssues(input.id, field, e));
+  issues.push(...(input.extraIssues ?? []));
 
   const evidence: RowEvidence = {
     ...ev,

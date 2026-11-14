@@ -27,7 +27,7 @@
  */
 import { stableKey } from '../evidence/findings.ts';
 import { DECISION_KINDS } from '../../providers/types.ts';
-import { HISTORY_ACTIONS, REVIEW_FORMAT_VERSION, REVIEW_KIND, type SavedReview, snapshot } from './reviewRecord.ts';
+import { HISTORY_ACTIONS, type ProjectDetails, REVIEW_FORMAT_VERSION, REVIEW_KIND, type SavedReview, projectDetailsProblems, snapshot } from './reviewRecord.ts';
 import type { Proposal } from '../evidence/proposals.ts';
 
 type Obj = Record<string, unknown>;
@@ -37,7 +37,18 @@ const isDate = (v: unknown) => isString(v) && v !== '' && !Number.isNaN(Date.par
 const isName = (v: unknown) => v === null || isString(v);
 const STATUSES = ['proposed', 'approved', 'rejected'];
 const SEVERITIES = ['info', 'warning', 'blocking'];
-const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported'];
+const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported', 'project_details_changed'];
+
+/** A well-formed ProjectDetails object (absent fields are refused; null means "not entered"). */
+function detailsShapeProblems(v: unknown, where: string): string[] {
+  if (!isObject(v)) return [`${where}: the project details are invalid.`];
+  const errors: string[] = [];
+  for (const k of ['name', 'year', 'projectRef', 'location']) {
+    if (!(k in v) || (v[k] !== null && (!isString(v[k]) || (v[k] as string).trim() === ''))) errors.push(`${where}: project detail "${k}" is invalid.`);
+  }
+  if (!errors.length) errors.push(...projectDetailsProblems(v as unknown as ProjectDetails).map((p) => `${where}: ${p}`));
+  return errors;
+}
 const AUXILIARY = ['warning_acknowledged', 'alternative_chosen'];
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -57,6 +68,7 @@ export function structureProblems(value: unknown): string[] {
   if (!isObject(r['extractionOptions'])) errors.push('The extraction settings are missing.');
   if (!Array.isArray(r['sheets']) || r['sheets'].some((s) => !isObject(s) || !isString(s['name']))) errors.push('The worksheet list is missing or invalid.');
   if (!isName(r['reviewer'])) errors.push('The reviewer name is invalid.');
+  if (r['projectDetails'] !== undefined) errors.push(...detailsShapeProblems(r['projectDetails'], 'Project details'));
 
   const proposals = r['proposals'];
   if (!Array.isArray(proposals)) {
@@ -108,6 +120,15 @@ export function structureProblems(value: unknown): string[] {
       }
       if (e['warningCodes'] !== undefined && (!Array.isArray(e['warningCodes']) || e['warningCodes'].some((w) => !isString(w)))) errors.push(`${where}: its warning codes are invalid.`);
       if (e['backupChecksum'] !== undefined && (!isString(e['backupChecksum']) || !HEX64.test(e['backupChecksum']))) errors.push(`${where}: its backup checksum is invalid.`);
+      const d = e['details'];
+      if (d !== undefined) {
+        if (!isObject(d)) errors.push(`${where}: its project details are invalid.`);
+        else {
+          if (d['previous'] !== null) errors.push(...detailsShapeProblems(d['previous'], where));
+          errors.push(...detailsShapeProblems(d['next'], where));
+        }
+      }
+      if (e['action'] === 'project_details_changed' && d === undefined) errors.push(`${where}: the changed project details are missing.`);
     });
   }
   return errors;
@@ -175,6 +196,7 @@ export function historyProblems(review: SavedReview): string[] {
   const state = new Map<string, string>(); // proposal id → stableKey of its recorded state
   const pending = new Map<string, { next: string; actions: Set<string> }>(); // acknowledgement / alternative awaiting its approval
   const key = (v: unknown) => stableKey(v);
+  let details: string = key(null); // project details as recorded so far (none before Stage 2J)
 
   review.history.forEach((e, n) => {
     const where = `History entry ${n + 1} (${e.action})`;
@@ -182,6 +204,10 @@ export function historyProblems(review: SavedReview): string[] {
     if (n > 0 && e.action === 'review_created') errors.push(`${where}: "review created" appears again.`);
     if (REVIEW_LEVEL.includes(e.action)) {
       if (e.proposalId !== undefined) errors.push(`${where}: a review-level entry must not refer to a proposal.`);
+      if (e.action === 'project_details_changed' && e.details) {
+        if (key(e.details.previous) !== details) errors.push(`${where}: its earlier project details do not match the details recorded before it.`);
+        details = key(e.details.next);
+      } else if (e.details) errors.push(`${where}: only a "project details changed" entry carries project details.`);
       return;
     }
     const p = e.proposalId === undefined ? undefined : proposals.get(e.proposalId);
@@ -237,6 +263,7 @@ export function historyProblems(review: SavedReview): string[] {
     state.set(p.id, key(next));
   });
 
+  if (key(review.projectDetails ?? null) !== details) errors.push('The project details do not match the last project details recorded in the history.');
   for (const p of review.proposals) {
     const where = `Proposal "${p.id}"`;
     if (pending.has(p.id)) errors.push(`${where}: the history ends with an acknowledgement or chosen alternative that has no approval.`);

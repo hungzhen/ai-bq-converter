@@ -16,6 +16,10 @@ export type IssueSeverity = 'info' | 'warning' | 'blocking';
 export type IssueCode =
   | 'REQUIRED_FIELD_NOT_IN_SOURCE' // a required FullBQItem field has no value in the document
   | 'PROJECT_YEAR_NOT_ENTERED' // the project year must be entered by a person
+  | 'PROJECT_NAME_NOT_ENTERED' // the project name must be entered by a person (never taken from a file name)
+  | 'CONTINUATION_VALUES_NOT_USED' // a continuation row has values outside the description column (not used, needs a person)
+  | 'LUMP_SUM_QUANTITY_NOT_STATED' // a lump-sum unit with no quantity: the quantity is NOT assumed to be 1
+  | 'HEADING_TEXT_NOT_FOUND' // a heading row's text could not be identified without guessing
   | 'NEGATIVE_VALUE' // a negative figure (kept as it is; blocks export until resolved — D-004)
   | 'UNPARSEABLE_VALUE' // text that could not be understood
   | 'SOURCE_VALUE_MISSING' // a value that should be there could not be read

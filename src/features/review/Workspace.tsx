@@ -10,7 +10,9 @@
  */
 import { useMemo, useState } from 'react';
 import { type Proposal, bulkApprove, bulkIneligibility, reopenProposal, reviewState } from '../../core/evidence/index.ts';
-import { type SavedReview, historyOf, recordChanges } from '../../core/review/index.ts';
+import { NO_PROJECT_DETAILS, type SavedReview, historyOf, recordChanges, setProjectDetails } from '../../core/review/index.ts';
+import { buildDrafts, verifyDrafts } from '../../core/staging/index.ts';
+import { DraftRows } from '../drafts/DraftRows.tsx';
 import type { PipelineSuccess } from '../../core/pipeline/runPipeline.ts';
 import { STAGES } from '../../core/pipeline/runPipeline.ts';
 import type { BqRowClass, ExtractedTable } from '../../core/models/index.ts';
@@ -49,6 +51,7 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
   const [bulkStep, setBulkStep] = useState<'idle' | 'confirm'>('idle');
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
   const [showIssues, setShowIssues] = useState(false);
+  const [view, setView] = useState<'review' | 'drafts'>('review');
 
   const verificationContext = { project, tables, documentId: extraction.document.id, provider };
   const selected = proposals.find((p) => p.id === selectedId) ?? null;
@@ -70,6 +73,16 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
     }
     return map;
   }, [proposals, activeTableId]);
+
+  // Draft rows are rebuilt from the saved decisions every time — never stored separately.
+  const drafts = useMemo(
+    () =>
+      view === 'drafts'
+        ? buildDrafts({ proposals, tables, documentId: extraction.document.id, projectDetails: review.projectDetails ?? NO_PROJECT_DETAILS, today: new Date().toISOString().slice(0, 10) })
+        : null,
+    [view, proposals, tables, extraction.document.id, review.projectDetails],
+  );
+  const traceProblems = useMemo(() => (drafts ? verifyDrafts(drafts, tables) : []), [drafts, tables]);
 
   const showCells = (refs: readonly { tableId: string; rowIndex: number; columnIndex?: number }[]) => {
     setHighlighted(new Set(refs.map((r) => cellKey(r.tableId, r.rowIndex, r.columnIndex))));
@@ -142,6 +155,14 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
           </span>
         ))}
         <span className="rounded bg-sky-50 px-2 py-0.5 text-sky-900">8. Your review</span>
+        <span className="ml-auto flex gap-1" role="tablist" aria-label="View">
+          <button type="button" role="tab" aria-selected={view === 'review'} onClick={() => setView('review')} className={`rounded border px-2 py-0.5 ${view === 'review' ? 'bg-slate-800 text-white' : 'bg-white'}`}>
+            Review proposals
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'drafts'} onClick={() => setView('drafts')} className={`rounded border px-2 py-0.5 ${view === 'drafts' ? 'bg-slate-800 text-white' : 'bg-white'}`}>
+            Draft rows
+          </button>
+        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded border border-slate-300 bg-white px-3 py-2 text-xs" data-testid="review-summary">
@@ -193,7 +214,22 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
         </ul>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3 overflow-hidden">
+      {view === 'drafts' && drafts && (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DraftRows
+            drafts={drafts}
+            projectDetails={review.projectDetails ?? NO_PROJECT_DETAILS}
+            traceProblems={traceProblems}
+            onSaveProjectDetails={(d) => onReviewChange(setProjectDetails(review, d, now(), reviewer))}
+            onShowSource={(cells) => {
+              setView('review');
+              if (cells.length) showCells(cells);
+            }}
+          />
+        </div>
+      )}
+
+      <div className={`min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3 overflow-hidden ${view === 'review' ? 'grid' : 'hidden'}`}>
         <SourcePreview
           tables={tables}
           sheets={extraction.sheets}

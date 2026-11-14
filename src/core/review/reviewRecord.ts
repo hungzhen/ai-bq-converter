@@ -40,12 +40,28 @@ export type HistoryAction =
   | 'warning_acknowledged'
   | 'decision_reopened'
   | 'review_restored'
-  | 'review_imported';
+  | 'review_imported'
+  | 'project_details_changed';
 
 export const HISTORY_ACTIONS: readonly HistoryAction[] = [
   'review_created', 'proposal_created', 'approved', 'rejected', 'correction_recorded',
   'alternative_chosen', 'warning_acknowledged', 'decision_reopened', 'review_restored', 'review_imported',
+  'project_details_changed',
 ];
+
+/**
+ * Project details typed in by a person (Stage 2J). Never inferred from the file name or contents.
+ * null = not entered. A review saved before Stage 2J has none: it reads as "not entered".
+ */
+export interface ProjectDetails {
+  readonly name: string | null;
+  /** "YYYY Q#", e.g. "2024 Q1". */
+  readonly year: string | null;
+  readonly projectRef: string | null;
+  readonly location: string | null;
+}
+
+export const NO_PROJECT_DETAILS: ProjectDetails = { name: null, year: null, projectRef: null, location: null };
 
 /** A proposal's decision at one moment. */
 export interface DecisionSnapshot {
@@ -71,6 +87,8 @@ export interface HistoryEvent {
   readonly warningCodes?: readonly string[];
   /** The imported backup's content checksum (action "review_imported") — used to notice the same backup imported again. */
   readonly backupChecksum?: string;
+  /** Project details before and after (action "project_details_changed"). */
+  readonly details?: { readonly previous: ProjectDetails | null; readonly next: ProjectDetails };
 }
 
 export interface SavedReview {
@@ -88,6 +106,8 @@ export interface SavedReview {
   readonly reviewer: string | null;
   readonly proposals: readonly Proposal[];
   readonly history: readonly HistoryEvent[];
+  /** Entered by a person (Stage 2J). Absent in reviews saved before Stage 2J. */
+  readonly projectDetails?: ProjectDetails;
 }
 
 export interface ReviewCounts {
@@ -204,3 +224,39 @@ export function recordEvent(
 }
 
 export const historyOf = (review: SavedReview, proposalId: string): HistoryEvent[] => review.history.filter((e) => e.proposalId === proposalId);
+
+export class ProjectDetailsError extends Error {
+  override name = 'ProjectDetailsError';
+}
+
+const PROJECT_YEAR = /^\d{4} Q[1-4]$/;
+const tidy = (v: string | null | undefined) => (v === null || v === undefined || v.trim() === '' ? null : v.trim());
+
+/** Checks typed-in project details. Returns plain-English problems (an empty list = acceptable). */
+export function projectDetailsProblems(d: ProjectDetails): string[] {
+  const problems: string[] = [];
+  if (d.year !== null && !PROJECT_YEAR.test(d.year)) problems.push(`The project year must look like "2024 Q1" (got "${d.year}").`);
+  return problems;
+}
+
+/**
+ * Records project details typed in by a person, with a history entry keeping the earlier
+ * details. Blank fields become null ("not entered"); nothing is filled in automatically.
+ */
+export function setProjectDetails(review: SavedReview, input: ProjectDetails, at: string, by: string | null): SavedReview {
+  const next: ProjectDetails = { name: tidy(input.name), year: tidy(input.year), projectRef: tidy(input.projectRef), location: tidy(input.location) };
+  const problems = projectDetailsProblems(next);
+  if (problems.length) throw new ProjectDetailsError(problems.join(' '));
+  const previous = review.projectDetails ?? null;
+  const changed = ['name', 'year', 'projectRef', 'location'].filter((k) => (previous?.[k as keyof ProjectDetails] ?? null) !== next[k as keyof ProjectDetails]);
+  if (changed.length === 0) return review;
+  return frozenCopy<SavedReview>({
+    ...review,
+    savedAt: at,
+    projectDetails: next,
+    history: [
+      ...review.history,
+      { sequence: review.history.length + 1, at, by, action: 'project_details_changed', summary: `Project details changed: ${changed.join(', ')}.`, details: { previous, next } },
+    ],
+  });
+}
