@@ -39,6 +39,7 @@ import {
   withdrawDraftResolution,
 } from '../../core/staging/index.ts';
 import { ROW_CLASS_LABEL } from '../review/labels.ts';
+import { type ExportResult, NOT_VALIDATED } from '../../core/export/index.ts';
 
 export const CATEGORY_LABEL: Record<RowCategory, string> = {
   draft_item: 'Draft rows',
@@ -94,11 +95,13 @@ export interface DraftRowsProps {
   readonly onShowSource: (cells: readonly CellRef[]) => void;
   /** Problems found when the drafts were checked against the source (should always be empty). */
   readonly traceProblems: readonly string[];
+  /** Creates the export files (checks, writes, reads back, records, downloads). */
+  readonly onCreateExport?: () => Promise<ExportResult>;
 }
 
 const now = () => new Date().toISOString();
 
-export function DraftRows({ drafts, review, reviewer, onReviewChange, projectDetails, onSaveProjectDetails, onShowSource, traceProblems }: DraftRowsProps) {
+export function DraftRows({ drafts, review, reviewer, onReviewChange, projectDetails, onSaveProjectDetails, onShowSource, traceProblems, onCreateExport }: DraftRowsProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [bulk, setBulk] = useState<'idle' | 'confirm'>('idle');
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
@@ -123,6 +126,7 @@ export function DraftRows({ drafts, review, reviewer, onReviewChange, projectDet
         calculated. To change a draft, change the decision behind it in the review. Reviewer names are typed in, not verified; the history is not tamper-proof.
       </p>
       <ProjectForm details={projectDetails} onSave={onSaveProjectDetails} />
+      {onCreateExport && <ExportPanel readiness={[...readiness.entries()].map(([id, r]) => ({ table: drafts.tables.find((t) => t.tableId === id)!, r }))} onCreateExport={onCreateExport} />}
 
       {(drafts.projectIssues.length > 0 || drafts.documentBlockers.length > 0) && (
         <div role="alert" data-testid="draft-blockers" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-red-900">
@@ -608,5 +612,69 @@ function NumberCell({ view, field, confirmed, onClick }: { view: RowView; field:
         {content}
       </button>
     </td>
+  );
+}
+
+/**
+ * EXPORT (Stage 2L). The upload workbook is NOT YET VALIDATED FOR COST LIBRARY IMPORT: it is
+ * never presented as safe to upload until the separate compatibility test is approved.
+ */
+function ExportPanel({ readiness, onCreateExport }: { readiness: { table: TableDrafts; r: TableReadiness }[]; onCreateExport: () => Promise<ExportResult> }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ExportResult | null>(null);
+  const ready = readiness.filter((x) => x.r.readyForExport && x.table.drafts.length > 0);
+  return (
+    <section className="rounded border-2 border-red-400 bg-white px-3 py-2" data-testid="export-panel">
+      <h3 className="text-sm font-semibold text-red-900">Export — {NOT_VALIDATED}</h3>
+      <p className="mt-1 rounded bg-red-50 px-2 py-1 text-red-900" data-testid="not-validated-warning">
+        The upload workbook has <strong>not</strong> been checked against the Cost Library import. The Cost Library importer may apply defaults or calculations
+        to blank cells. Do not upload it to the Cost Library until the separate compatibility test has been completed and approved. The files are for checking only.
+      </p>
+      <ul className="mt-1 list-disc pl-5" data-testid="export-tables">
+        {readiness.map(({ table, r }) => (
+          <li key={table.tableId} className={r.readyForExport && table.drafts.length ? 'text-green-900' : 'text-slate-600'}>
+            <strong>{table.name}</strong>:{' '}
+            {r.readyForExport && table.drafts.length
+              ? `will be exported — ${r.counts.approved} approved row(s); ${r.counts.excluded} excluded row(s) stay in the reconciliation only.`
+              : `not exported — ${[...table.reasons, ...r.notReadyBecause].join(' ') || 'no draft rows.'}`}
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        disabled={busy || ready.length === 0}
+        onClick={async () => {
+          setBusy(true);
+          setResult(await onCreateExport());
+          setBusy(false);
+        }}
+        className="mt-2 rounded bg-slate-800 px-3 py-1 text-white disabled:opacity-40"
+      >
+        {busy ? 'Checking and writing…' : 'Create export files (for checking only)'}
+      </button>
+      {result && !result.ok && (
+        <div role="alert" data-testid="export-errors" className="mt-2 text-red-900">
+          <strong>No files were produced:</strong>
+          <ul className="list-disc pl-5">
+            {result.errors.map((e, n) => (
+              <li key={n}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {result && result.ok && (
+        <div role="status" data-testid="export-done" className="mt-2 text-slate-800">
+          Files created, read back and checked; the export is recorded in the review history:
+          <ul className="list-disc pl-5">
+            {result.files.map((f) => (
+              <li key={f.kind}>
+                {f.fileName} — SHA-256 {f.sha256.slice(0, 16)}… ({f.bytes.length.toLocaleString('en-GB')} bytes)
+                {f.kind === 'upload' ? ` — ${NOT_VALIDATED}` : ' — reconciliation only, never for upload'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

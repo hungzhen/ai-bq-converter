@@ -4,7 +4,7 @@
  */
 export const APP_INFO = {
   name: 'AI BQ Converter',
-  stage: 'Phase 2 — Stage 2K (resolving issues and approving draft rows)',
+  stage: 'Phase 2 — Stage 2L (upload and reconciliation workbooks — not yet validated for import)',
   /** How documents are interpreted. Phase 2 uses conventional rules only — no AI. */
   processingMode: 'Conventional rule-based processing — no AI in use',
   /** Pinned SheetJS Community Edition version (official CDN package). */

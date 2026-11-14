@@ -47,14 +47,22 @@ export type HistoryAction =
   | 'row_approved'
   | 'row_needs_changes'
   | 'row_excluded'
-  | 'row_decision_reopened';
+  | 'row_decision_reopened'
+  | 'review_exported';
 
 export const HISTORY_ACTIONS: readonly HistoryAction[] = [
   'review_created', 'proposal_created', 'approved', 'rejected', 'correction_recorded',
   'alternative_chosen', 'warning_acknowledged', 'decision_reopened', 'review_restored', 'review_imported',
   'project_details_changed',
   'row_issue_resolved', 'row_resolution_withdrawn', 'row_approved', 'row_needs_changes', 'row_excluded', 'row_decision_reopened',
+  'review_exported',
 ];
+
+/** What an export produced (Stage 2L): the tables included and each file's fingerprint. */
+export interface ExportRecord {
+  readonly tables: readonly { readonly tableId: string; readonly name: string; readonly rows: number }[];
+  readonly files: readonly { readonly kind: 'upload' | 'reconciliation'; readonly fileName: string; readonly sha256: string; readonly bytes: number }[];
+}
 
 /** History actions about draft rows (Stage 2K). */
 export const ROW_ACTIONS: readonly HistoryAction[] = [
@@ -157,6 +165,8 @@ export interface HistoryEvent {
   readonly backupChecksum?: string;
   /** A draft row's decisions before and after (row_* actions). */
   readonly draftRow?: { readonly draftId: string; readonly previous: DraftRowState | null; readonly next: DraftRowState };
+  /** What was exported (action "review_exported"). */
+  readonly exported?: ExportRecord;
   /** Project details before and after (action "project_details_changed"). */
   readonly details?: { readonly previous: ProjectDetails | null; readonly next: ProjectDetails };
 }
@@ -356,6 +366,26 @@ export function recordDraftRowChange(
     history: [
       ...review.history,
       { sequence: review.history.length + 1, at, by, action, summary, ...(note ? { note } : {}), draftRow: { draftId: next.draftId, previous, next } },
+    ],
+  });
+}
+
+/** Records an export (Stage 2L): time, name as typed, tables included and both files' SHA-256. */
+export function recordExport(review: SavedReview, record: ExportRecord, at: string, by: string | null): SavedReview {
+  const rows = record.tables.reduce((n, t) => n + t.rows, 0);
+  return frozenCopy<SavedReview>({
+    ...review,
+    savedAt: at,
+    history: [
+      ...review.history,
+      {
+        sequence: review.history.length + 1,
+        at,
+        by,
+        action: 'review_exported',
+        summary: `Exported ${rows} approved row(s) from ${record.tables.map((t) => t.name).join(', ')} (upload workbook NOT YET VALIDATED for Cost Library import) and a reconciliation workbook.`,
+        exported: record,
+      },
     ],
   });
 }

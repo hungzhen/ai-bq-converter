@@ -13,6 +13,7 @@ import { type Proposal, bulkApprove, bulkIneligibility, reopenProposal, reviewSt
 import { NO_PROJECT_DETAILS, type SavedReview, historyOf, recordChanges, setProjectDetails } from '../../core/review/index.ts';
 import { buildDrafts, verifyDrafts } from '../../core/staging/index.ts';
 import { DraftRows } from '../drafts/DraftRows.tsx';
+import { createExport } from '../../core/export/index.ts';
 import type { PipelineSuccess } from '../../core/pipeline/runPipeline.ts';
 import { STAGES } from '../../core/pipeline/runPipeline.ts';
 import type { BqRowClass, ExtractedTable } from '../../core/models/index.ts';
@@ -34,13 +35,15 @@ export interface WorkspaceProps {
   readonly reviewer: string | null;
   readonly provider: ProviderInfo;
   readonly onStartAgain: () => void;
+  /** Hands a generated workbook to the user (a browser download). */
+  readonly onDownloadFile?: (fileName: string, bytes: Uint8Array) => void;
 }
 
 function firstTableWithContent(tables: readonly ExtractedTable[]): string {
   return (tables.find((t) => t.rows.length > 0) ?? tables[0])?.id ?? '';
 }
 
-export function Workspace({ result, review, onReviewChange, saveStatus, onExport, reviewer, provider, onStartAgain }: WorkspaceProps) {
+export function Workspace({ result, review, onReviewChange, saveStatus, onExport, reviewer, provider, onStartAgain, onDownloadFile }: WorkspaceProps) {
   const { extraction, project } = result;
   const tables = extraction.tables;
   const proposals = review.proposals;
@@ -224,6 +227,13 @@ export function Workspace({ result, review, onReviewChange, saveStatus, onExport
             projectDetails={review.projectDetails ?? NO_PROJECT_DETAILS}
             traceProblems={traceProblems}
             onSaveProjectDetails={(d) => onReviewChange(setProjectDetails(review, d, now(), reviewer))}
+            onCreateExport={async () => {
+              const res = await createExport({ review, drafts, tables, document: extraction.document, at: now(), by: reviewer });
+              if (!res.ok) return res;
+              onReviewChange(res.review); // the export is recorded in the history
+              for (const f of res.files) onDownloadFile?.(f.fileName, f.bytes);
+              return res;
+            }}
             onShowSource={(cells) => {
               setView('review');
               if (cells.length) showCells(cells);

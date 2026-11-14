@@ -178,3 +178,33 @@ Decisions approved by the project owner. Newest at the bottom. Each entry says w
 - **Compatibility:** Stage 2I and 2J reviews and backups load and reopen unchanged, with no row decisions until a reviewer makes them. The review format version stays 1.
 - **Stage 2L (planned):** the Cost Library upload workbook and the reconciliation workbook. The Cost Library import compatibility test will be proposed separately and needs explicit approval.
 
+## D-020 — Upload workbook and reconciliation workbook (Stage 2L)
+- **Template verified read-only.** With the owner's permission, the local Cost Library copy at commit `00491965` was **read** (nothing changed):
+  - `src/utils/exportImport.ts` `buildFullBQTemplate`: an "Instructions" sheet and a "BQ" sheet with the columns `No. | Bill | Level 2 Element | Main Heading | Subheading | Secondary Subheading | Item Description | Unit | Qty | Rate (RM) | Amount (RM)`.
+  - The project name and year come from the import dialog, not the workbook.
+  - `src/utils/bqImportAnalyzer.ts` and `src/utils/bqSheetScan.ts`: how the importer treats blanks, headings, negatives and "EXAMPLE" rows. These are recorded as expected **import effects**, not confirmed.
+- **Upload workbook: NOT YET VALIDATED FOR COST LIBRARY IMPORT.** The label is in the file name, the Instructions sheet, the workbook properties and the Export panel. The app never presents the workbook as safe to import, or recommends uploading it, until the separate compatibility test is completed and approved.
+- **Contents:**
+  - approved rows of ready tables only, in source order, with headings on every row;
+  - item numbers and descriptions exact; units exactly as written (decision 3); the bill column is the approved bill heading text, or blank (decision 4); Level 2 Element blank;
+  - confirmed missing Qty, Rate and Amount values are **genuinely blank cells**, never 0, calculated or defaulted;
+  - no negative figure, no totals, no formulas. Text is always stored as text, so source text that looks like a formula ("=…", "+…", "-…", "@…") stays text.
+- **Partial export (decision 2):** ready tables are exported while others are blocked. Blocked tables never appear in the upload workbook and are listed in the reconciliation.
+- **Reconciliation workbook:** "NOT a Cost Library upload workbook" is the first line of every sheet. Its sheets:
+  - Summary, with stated totals listed only (decision 5);
+  - Line Trace, with every contributing source row;
+  - Coverage, with every source row exactly once;
+  - Excluded Rows, with original values (negatives keep their sign) and reasons;
+  - Issues & Resolutions;
+  - Placeholders;
+  - Import Effects, each marked "NOT YET CONFIRMED by the compatibility test";
+  - Extra Columns;
+  - Decision History;
+  - Blocked Tables.
+- **Checks:**
+  - **Before writing:** the review passes its checks, the drafts trace to their source cells, the project name and year are entered, and every exported row is approved and current with no unresolved blocking issue, no negative figure, and no blank figure that was not confirmed.
+  - **After writing:** both files are read back with the converter's own extractor and compared cell by cell. Any failure means **no file is produced**.
+- **Export history (decision 6):** an "exported" entry records the time, the name as typed, the tables included, and both files' SHA-256 fingerprints and sizes.
+- **Not included:** the Cost Library import compatibility test, which is a separate proposal needing approval; uploading; claims, which are never exported here; pricing options; several quantity columns.
+- Details: `docs/EXPORT.md`.
+

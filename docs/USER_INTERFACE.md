@@ -116,7 +116,18 @@ Since Stage 2K, each draft row also has **Decide / resolve…**: you can resolve
 
 ![An outdated approval](screenshots/21-outdated-approval.png)
 
-## 7. Not yet
+## 7. Export (Stage 2L)
+
+The **Export** panel on the Draft rows tab creates two files, for **checking only**:
+
+- an upload workbook in the Cost Library template, labelled **NOT YET VALIDATED FOR COST LIBRARY IMPORT**: do not upload it until the separate compatibility test is approved;
+- a reconciliation workbook, never for upload.
+
+Details: [`EXPORT.md`](EXPORT.md).
+
+![Export panel](screenshots/22-export-panel.png)
+
+## 8. Not yet
 
 - There is no export to the Cost Library yet.
 - PDF and OCR are later phases.

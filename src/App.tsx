@@ -41,12 +41,23 @@ export interface AppProps {
   readonly store?: ReviewStore;
   /** How a backup file is handed to the user (a browser download unless a test supplies another). */
   readonly download?: (fileName: string, text: string) => void;
+  /** How a generated workbook is handed to the user (a browser download unless a test supplies another). */
+  readonly downloadFile?: (fileName: string, bytes: Uint8Array) => void;
 }
 
 const defaultProvider = createRuleBasedProvider();
 
 function browserDownload(fileName: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function browserDownloadFile(fileName: string, bytes: Uint8Array): void {
+  const url = URL.createObjectURL(new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;
@@ -62,7 +73,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB');
  * The application: choose a spreadsheet (or reopen a saved review) → pipeline → review.
  * Everything runs and is saved in this browser; nothing is uploaded.
  */
-export default function App({ provider = defaultProvider, store: givenStore, download = browserDownload }: AppProps) {
+export default function App({ provider = defaultProvider, store: givenStore, download = browserDownload, downloadFile = browserDownloadFile }: AppProps) {
   const store = useRef<ReviewStore>(givenStore ?? createDefaultReviewStore()).current;
   const [phase, setPhase] = useState<Phase>({ name: 'select' });
   const [reviewer, setReviewer] = useState('');
@@ -372,6 +383,7 @@ export default function App({ provider = defaultProvider, store: givenStore, dow
               void save(review);
             }}
             onExport={() => void exportReview(phase.review)}
+            onDownloadFile={downloadFile}
             reviewer={reviewerName}
             provider={provider.info}
             onStartAgain={() => {

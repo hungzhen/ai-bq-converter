@@ -47,7 +47,7 @@ const isDate = (v: unknown) => isString(v) && v !== '' && !Number.isNaN(Date.par
 const isName = (v: unknown) => v === null || isString(v);
 const STATUSES = ['proposed', 'approved', 'rejected'];
 const SEVERITIES = ['info', 'warning', 'blocking'];
-const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported', 'project_details_changed', ...ROW_ACTIONS];
+const REVIEW_LEVEL = ['review_created', 'review_restored', 'review_imported', 'project_details_changed', 'review_exported', ...ROW_ACTIONS];
 const ROW_STATUSES = ['approved', 'needs_changes', 'excluded'];
 const isStringMap = (v: unknown) => isObject(v) && Object.values(v).every(isString);
 
@@ -198,6 +198,13 @@ export function structureProblems(value: unknown): string[] {
         }
       }
       if (ROW_ACTIONS.includes(e['action'] as never) && dr === undefined) errors.push(`${where}: the changed draft-row decisions are missing.`);
+      const ex = e['exported'];
+      if (e['action'] === 'review_exported' || ex !== undefined) {
+        const tablesOk = isObject(ex) && Array.isArray(ex['tables']) && ex['tables'].length > 0 && ex['tables'].every((t) => isObject(t) && isString(t['tableId']) && isString(t['name']) && Number.isInteger(t['rows']));
+        const filesOk = isObject(ex) && Array.isArray(ex['files']) && ex['files'].length === 2 && ex['files'].every((f) => isObject(f) && ['upload', 'reconciliation'].includes(String(f['kind'])) && isString(f['fileName']) && isString(f['sha256']) && HEX64.test(f['sha256']) && Number.isInteger(f['bytes']));
+        if (e['action'] !== 'review_exported') errors.push(`${where}: only an "exported" entry carries an export record.`);
+        else if (!tablesOk || !filesOk) errors.push(`${where}: the export record (tables and the two files' fingerprints) is missing or invalid.`);
+      }
     });
   }
   return errors;
